@@ -1,8 +1,7 @@
 module f_tomlc99
-  use, intrinsic :: iso_fortran_env, only : stdin=>input_unit, &
-                                            stdout=>output_unit, &
+  use, intrinsic :: iso_fortran_env, only : stdout=>output_unit, &
                                             stderr=>error_unit
-  use iso_c_binding, only: c_ptr, c_char, c_null_char, c_int, c_size_t, &
+  use iso_c_binding, only: c_ptr, c_char, c_null_char, c_int, &
                            c_associated
 
   implicit none
