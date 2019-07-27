@@ -1,102 +1,83 @@
-module f_tomlc99
+module tomlc99
   use, intrinsic :: iso_fortran_env, only : stdout=>output_unit, &
                                             stderr=>error_unit, &
                                             int32, int64, real64
-
-  use iso_c_binding, only: c_ptr, c_char, c_null_char, &
-                           c_int, c_int64_t, c_double, & 
-                           c_associated, c_null_ptr 
+  use iso_c_binding
 
   implicit none 
 
-  type(c_ptr), protected :: toml_data = c_null_ptr, &
-                            toml_table = c_null_ptr
+  integer(int32), parameter :: maxStrLen = 65536
 
   interface
 
-    function fopen(fileName, mode) bind(C)
+    function c_fopen(fileName, mode) bind(C,name="fopen")
       import                 :: c_ptr, c_char
-      type(c_ptr)            :: fopen
+      type(c_ptr)            :: c_fopen
       character(kind=c_char) :: fileName, mode
     end function
 
-    function fclose(filePtr) bind(C)
+    function c_fclose(filePtr) bind(C,name="fclose")
       import                 :: c_ptr, c_int
       type(c_ptr), value     :: filePtr
-      integer(c_int)         :: fclose
+      integer(c_int)         :: c_fclose
     end function
 
-    function toml_parse_file(filePtr, errBuf, errBufSz) bind(C)
+    function tomlc99_toml_parse_file(filePtr, errBuf, errBufSz) &
+             bind(C,name="toml_parse_file")
       import                 :: c_ptr, c_char, c_int
-      type(c_ptr)            :: toml_parse_file
+      type(c_ptr)            :: tomlc99_toml_parse_file
       type(c_ptr), value     :: filePtr
       character(kind=c_char) :: errBuf(*)
       integer(c_int)         :: errBufSz 
     end function 
 
-    function toml_table_nkval(tblPtr) bind(C)
+    function tomlc99_toml_key_in(tblPtr, keyIdx) bind(C,name="toml_key_in")
       import                 :: c_ptr, c_int
+      type(c_ptr)            :: tomlc99_toml_key_in
       type(c_ptr), value     :: tblPtr
-      integer(c_int)         :: toml_table_nkval
+      integer(c_int), value  :: keyIdx
     end function 
 
-    function toml_table_narr(tblPtr) bind(C)
-      import                 :: c_ptr, c_int
-      type(c_ptr), value     :: tblPtr
-      integer(c_int)         :: toml_table_nkval
-    end function 
-
-    function toml_table_ntab(tblPtr) bind(C)
-      import                 :: c_ptr, c_int
-      type(c_ptr), value     :: tblPtr
-      integer(c_int)         :: toml_table_nkval
-    end function 
-
-    function toml_key_in(dataPtr, keyIdx) bind(C)
-      import                 :: c_ptr, c_int
-      type(c_ptr)            :: toml_raw_in
-      type(c_ptr), value     :: dataPtr
-      integer(c_int)         :: keyIdx
-    end function 
-
-    function toml_raw_in(dataPtr, keyName) bind(C)
+    function tomlc99_toml_raw_in(dataPtr, keyName) bind(C,name="toml_raw_in")
       import                 :: c_ptr, c_char
-      type(c_ptr)            :: toml_raw_in
+      type(c_ptr)            :: tomlc99_toml_raw_in
       type(c_ptr), value     :: dataPtr
       character(kind=c_char) :: keyName(*)
     end function 
 
-    function toml_table_in(dataPtr, tableName) bind(C)
+    function tomlc99_toml_table_in(dataPtr, tableName) &
+             bind(C,name="toml_table_in")
       import                 :: c_ptr, c_char
-      type(c_ptr)            :: toml_table_in
+      type(c_ptr)            :: tomlc99_toml_table_in
       type(c_ptr), value     :: dataPtr
       character(kind=c_char) :: tableName(*)
     end function 
 
-    function toml_array_in(dataPtr, arrayName) bind(C)
+    function tomlc99_toml_array_in(dataPtr, arrayName) &
+             bind(C,name="toml_array_in")
       import                 :: c_ptr, c_char
-      type(c_ptr)            :: toml_array_in
+      type(c_ptr)            :: tomlc99_toml_array_in
       type(c_ptr), value     :: dataPtr
       character(kind=c_char) :: arrayName(*)
     end function 
 
-    function toml_rtos(raw, outStr) bind(C)
+    function tomlc99_toml_rtos(raw, outStr) bind(C,name="toml_rtos")
       import                 :: c_int, c_ptr, c_char
-      integer(c_int)         :: toml_rtos
+      integer(c_int)         :: tomlc99_toml_rtos
       type(c_ptr), value     :: raw
-      character(kind=c_char) :: outStr(*)
+      type(c_ptr)            :: outStr
     end function 
 
-    function toml_rtoi(raw, outInt) bind(C)
+    function tomlc99_toml_rtoi(raw, outInt) bind(C,name="toml_rtoi")
       import                 :: c_ptr, c_int, c_int64_t
-      integer(c_int)         :: toml_rtoi
+      integer(c_int)         :: tomlc99_toml_rtoi
       type(c_ptr), value     :: raw
       integer(c_int64_t)     :: outInt
     end function 
 
-    function toml_rtod(raw, outDbl) bind(C)
+    function tomlc99_toml_rtod(raw, outDbl) bind(C,name="toml_rtod")
       import                 :: c_ptr, c_int, c_double
-      integer(c_int)         :: toml_rtoi
+      integer(c_int)         :: tomlc99_toml_rtoi
       type(c_ptr), value     :: raw
       real(c_double)         :: outDbl
     end function 
@@ -105,28 +86,29 @@ module f_tomlc99
 
   contains
 
-  subroutine open_toml_file(fileName)
-    character(len=*), intent(in) :: fileName
-    type(c_ptr) :: fh
-    character(len=512, kind=c_char):: errBuf
+  function open_file(fileName)
+    type(c_ptr)                     :: open_file
+    character(len=*), intent(in)    :: fileName
+    type(c_ptr)                     :: fh
+    character(len=512, kind=c_char) :: errBuf
 
-    fh = fopen(trim(fileName) // c_null_char, &
-               c_char_"r" // c_null_char)
+    fh = c_fopen(trim(fileName) // c_null_char, &
+                 c_char_"r" // c_null_char)
 
     if (c_associated(fh) .eqv. .false.) then
       write(stderr,101) trim(fileName)
       error stop
     endif
 
-    toml_data = toml_parse_file(fh, errBuf, len(errBuf, kind=c_int))
+    open_file = tomlc99_toml_parse_file(fh, errBuf, len(errBuf, kind=c_int))
 
-    if (c_associated(toml_data) .eqv. .false.) then
+    if (c_associated(open_file) .eqv. .false.) then
       write(stderr,102) trim(fileName)
       call write_error_buffer(errBuf)
       error stop
     endif
    
-    if (fclose(fh) /= 0) then
+    if (c_fclose(fh) /= 0) then
       write(stderr,103) trim(fileName)
       error stop
     endif
@@ -135,47 +117,81 @@ module f_tomlc99
     102 format ('ERROR: Failed to parse ',a)
     103 format ('ERROR: Failed to close ',a)
 
-  end subroutine
+  end function
 
   subroutine write_error_buffer(errBuf)
     character(len=*, kind=c_char), intent(in) :: errBuf
     integer :: idx
     do idx=1,len(errBuf)
-      if (errBuf(idx:idx) == char(0)) exit
+      if (errBuf(idx:idx) == c_null_char) exit
     enddo
     write(stderr, '(a)') errBuf(1:idx)
   end subroutine
 
-  subroutine toml_load_table(tblName, ierr)
+  function table_in(inTblPtr, tblName, ierr)
+    type(c_ptr)                   :: table_in
+    type(c_ptr), intent(in)       :: inTblPtr
     character(len=*), intent(in)  :: tblName
     integer,          intent(out) :: ierr
 
     ierr = 0
-    toml_table = toml_table_in(toml_data, &
-                               tblName // c_null_char)
+    table_in = tomlc99_toml_table_in(inTblPtr, &
+                                     tblName // c_null_char)
 
-    if (c_associated(toml_data) .eqv. .false.) then
+    if (c_associated(table_in) .eqv. .false.) then
       write(stderr,101) trim(tblName)
       ierr = 1
     endif
  
     101 format ('ERROR: Failed to find table: ',a)
 
-  end subroutine
+  end function
 
-  subroutine toml_get_key_str(keyName, outStr, ierr)
+  function get_key_strlen(inTblPtr, keyName)
+
+    integer(int32)                :: get_key_strlen
+    type(c_ptr),      intent(in)  :: inTblPtr
     character(len=*), intent(in)  :: keyName 
+
+    type(c_ptr)                   :: tmpRaw
+    integer(c_int)                :: c_ierr = 0
+    type(c_ptr)                   :: c_outStr
+
+    character(len=maxStrLen), pointer :: fstring
+
+    tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
+
+    if (c_associated(tmpRaw) .eqv. .false.) then
+      write(stderr,101) trim(keyName)
+      get_key_strlen = -1
+      return
+    endif
+
+    c_ierr = tomlc99_toml_rtos(tmpRaw, c_outStr)
+
+    call c_f_pointer(c_outStr, fstring)
+    get_key_strlen =  index(fstring, c_null_char)-1
+
+    101 format ('ERROR: Failed to find key: ',a)
+
+  end function
+
+  subroutine get_key_str(inTblPtr, keyName, outVal, ierr)
+
+    type(c_ptr),      intent(in)  :: inTblPtr
+    character(len=*), intent(in)  :: keyName 
+    character(len=*), intent(out) :: outVal
     integer(int32),   intent(out) :: ierr
-    character(len=*), intent(out) :: outStr
 
     type(c_ptr)                    :: tmpRaw
     integer(c_int)                 :: c_ierr = 0
-    character(len=128)             :: c_outStr = ""
+    type(c_ptr)                    :: c_outStr
 
-    outStr = ""
-    ierr   = 0
+    character(len=maxStrLen), pointer  :: fstring
 
-    tmpRaw = toml_raw_in(toml_table, trim(keyName) // c_null_char)
+    integer :: strLen = 0
+
+    tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
 
     if (c_associated(tmpRaw) .eqv. .false.) then
       write(stderr,101) trim(keyName)
@@ -183,23 +199,30 @@ module f_tomlc99
       return
     endif
 
-    c_ierr = toml_rtos(tmpRaw, c_outStr)
-    ierr   = c_ierr
+    c_ierr = tomlc99_toml_rtos(tmpRaw, c_outStr)
 
-    if (c_ierr == -1) then
+    call c_f_pointer(c_outStr, fstring)
+    strLen =  index(fstring, c_null_char)-1
+
+    if (strLen /= len(outVal)) then
       write(stderr,102) trim(keyName)
+      ierr = -1
       return
     endif
- 
+
+    outVal = fstring(1:strLen)
+
     101 format ('ERROR: Failed to find key: ',a)
-    102 format ('ERROR: Failed string conversion for key: ',a)
+    102 format ('ERROR: Output string length does not match TOML data for key: ',a)
 
   end subroutine
 
-  subroutine toml_get_key_int(keyName, outVal, ierr)
+  subroutine get_key_int(inTblPtr, keyName, outVal, ierr)
+
+    type(c_ptr),      intent(in)  :: inTblPtr
     character(len=*), intent(in)  :: keyName 
-    integer(int32),   intent(out) :: ierr
     integer(int64),   intent(out) :: outVal
+    integer(int32),   intent(out) :: ierr
 
     type(c_ptr)                   :: tmpRaw
     integer(c_int)                :: c_ierr = 0
@@ -208,7 +231,7 @@ module f_tomlc99
     outVal = 0
     ierr   = 0
 
-    tmpRaw = toml_raw_in(toml_table, trim(keyName) // c_null_char)
+    tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
 
     if (c_associated(tmpRaw) .eqv. .false.) then
       write(stderr,101) trim(keyName)
@@ -216,7 +239,7 @@ module f_tomlc99
       return
     endif
 
-    c_ierr = toml_rtoi(tmpRaw, c_outVal)
+    c_ierr = tomlc99_toml_rtoi(tmpRaw, c_outVal)
     ierr   = c_ierr
 
     if (c_ierr == -1) then
@@ -231,10 +254,12 @@ module f_tomlc99
 
   end subroutine
 
-  subroutine toml_get_key_dbl(keyName, outVal, ierr)
+  subroutine get_key_dbl(inTblPtr, keyName, outVal, ierr)
+
+    type(c_ptr),      intent(in)  :: inTblPtr
     character(len=*), intent(in)  :: keyName 
-    integer(int32),   intent(out) :: ierr
     real(real64),     intent(out) :: outVal
+    integer(int32),   intent(out) :: ierr
 
     type(c_ptr)                   :: tmpRaw
     integer(c_int)                :: c_ierr = 0
@@ -243,7 +268,7 @@ module f_tomlc99
     outVal = 0
     ierr   = 0
 
-    tmpRaw = toml_raw_in(toml_table, trim(keyName) // c_null_char)
+    tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
 
     if (c_associated(tmpRaw) .eqv. .false.) then
       write(stderr,101) trim(keyName)
@@ -251,7 +276,7 @@ module f_tomlc99
       return
     endif
 
-    c_ierr = toml_rtod(tmpRaw, c_outVal)
+    c_ierr = tomlc99_toml_rtod(tmpRaw, c_outVal)
     ierr   = c_ierr
 
     if (c_ierr == -1) then
@@ -266,6 +291,54 @@ module f_tomlc99
 
   end subroutine
 
+  function get_keyLen_at_index(inTblPtr, keyIndex)
 
+    integer(int32)              :: get_keyLen_at_index
+    type(c_ptr),    intent(in)  :: inTblPtr
+    integer(int32), intent(in)  :: keyIndex
+
+    integer(c_int)              :: c_idx
+    type(c_ptr)                 :: tmpKey
+    character(len=maxStrLen), &
+                        pointer :: fstring
+
+    c_idx  = keyIndex
+    tmpKey = tomlc99_toml_key_in(inTblPtr, c_idx)
+    call c_f_pointer(tmpKey, fstring)
+    get_keyLen_at_index = index(fstring, c_null_char)-1
+
+  end function
+
+  subroutine get_keyName_at_index(inTblPtr, keyIndex, keyName, ierr)
+
+    type(c_ptr),      intent(in)  :: inTblPtr
+    integer(int32),   intent(in)  :: keyIndex
+    character(len=*), intent(out) :: keyName
+    integer(int32),   intent(out) :: ierr
+
+    integer(c_int)                :: c_idx
+    type(c_ptr)                   :: tmpKey
+    character(len=maxStrLen), &
+                        pointer   :: fstring
+
+    integer(int32)                :: keyLen
+
+    ierr   = 0
+    c_idx  = keyIndex
+    tmpKey = tomlc99_toml_key_in(inTblPtr, c_idx)
+    call c_f_pointer(tmpKey, fstring)
+    keyLen = index(fstring, c_null_char)-1
+
+    if (keyLen /= len(keyName)) then
+      write(stderr,101) trim(keyName)
+      ierr = -1
+      return
+    endif
+
+    keyName = fstring(1:keyLen)
+
+    101 format ('ERROR: Output string length does not match TOML data for key: ',a)
+
+  end subroutine
 
 end module
