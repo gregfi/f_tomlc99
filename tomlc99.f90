@@ -7,6 +7,7 @@ module tomlc99
   implicit none 
 
   integer(int32), parameter :: maxStrLen = 262144
+  logical,        parameter :: errorsFatal = .true.
 
   interface
 
@@ -21,6 +22,11 @@ module tomlc99
       type(c_ptr), value     :: filePtr
       integer(c_int)         :: c_fclose
     end function
+
+    subroutine c_free(ptr) bind(C,name="free")
+      import                 :: c_ptr
+      type(c_ptr), value     :: ptr
+    end subroutine
 
     function tomlc99_toml_parse_file(filePtr, errBuf, errBufSz) &
              bind(C,name="toml_parse_file")
@@ -61,7 +67,36 @@ module tomlc99
       character(kind=c_char) :: arrayName(*)
     end function 
 
-    function tomlc99_toml_rtos(raw, outStr) bind(C,name="toml_rtos")
+    function tomlc99_toml_array_kind(arrPtr) &
+             bind(C,name="toml_array_kind")
+      import                 :: c_ptr, c_char
+      type(c_ptr), value     :: arrPtr
+      character(kind=c_char) :: tomlc99_toml_array_kind
+    end function 
+
+    function tomlc99_toml_array_type(arrPtr) &
+             bind(C,name="toml_array_type")
+      import                 :: c_ptr, c_char
+      type(c_ptr), value     :: arrPtr
+      character(kind=c_char) :: tomlc99_toml_array_type
+    end function 
+
+    function tomlc99_toml_array_nelem(arrPtr) &
+             bind(C,name="toml_array_nelem")
+      import                 :: c_ptr, c_int 
+      integer(c_int)         :: tomlc99_toml_array_nelem
+      type(c_ptr), value     :: arrPtr
+    end function 
+
+    function tomlc99_toml_raw_at(arrPtr, idx) &
+             bind(C,name="toml_raw_at")
+      import                 :: c_ptr, c_int 
+      type(c_ptr)            :: tomlc99_toml_raw_at
+      type(c_ptr), value     :: arrPtr
+      integer(c_int), value  :: idx
+    end function 
+
+   function tomlc99_toml_rtos(raw, outStr) bind(C,name="toml_rtos")
       import                 :: c_int, c_ptr, c_char
       integer(c_int)         :: tomlc99_toml_rtos
       type(c_ptr), value     :: raw
@@ -80,6 +115,13 @@ module tomlc99
       integer(c_int)         :: tomlc99_toml_rtoi
       type(c_ptr), value     :: raw
       real(c_double)         :: outDbl
+    end function 
+
+    function tomlc99_toml_rtob(raw, outBool) bind(C,name="toml_rtob")
+      import                 :: c_ptr, c_int, c_bool
+      integer(c_int)         :: tomlc99_toml_rtob
+      type(c_ptr), value     :: raw
+      logical(c_bool)        :: outBool
     end function 
 
   end interface
@@ -128,24 +170,185 @@ module tomlc99
     write(stderr, '(a)') errBuf(1:idx)
   end subroutine
 
-  function table_in(inTblPtr, tblName, ierr)
+  function table_in(inTblPtr, tblName)
     type(c_ptr)                   :: table_in
     type(c_ptr), intent(in)       :: inTblPtr
     character(len=*), intent(in)  :: tblName
-    integer,          intent(out) :: ierr
 
-    ierr = 0
     table_in = tomlc99_toml_table_in(inTblPtr, &
                                      tblName // c_null_char)
 
     if (c_associated(table_in) .eqv. .false.) then
       write(stderr,101) trim(tblName)
-      ierr = 1
+      if (errorsFatal .eqv. .true.) error stop
     endif
  
     101 format ('ERROR: Failed to find table: ',a)
 
   end function
+
+  function array_in(inTblPtr, arrayName)
+
+    type(c_ptr)                   :: array_in
+    type(c_ptr),      intent(in)  :: inTblPtr
+    character(len=*), intent(in)  :: arrayName
+
+    array_in = tomlc99_toml_array_in(inTblPtr, &
+                                     arrayName // c_null_char)
+
+    if (c_associated(array_in) .eqv. .false.) then
+      write(stderr,101) trim(arrayName)
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+ 
+    101 format ('ERROR: Failed to find array: ',a)
+
+  end function
+
+  function array_kind(inArrPtr)
+
+    character                     :: array_kind
+    type(c_ptr), intent(in)       :: inArrPtr
+
+    character(kind=c_char)        :: c_kind
+
+    c_kind = tomlc99_toml_array_kind(inArrPtr)
+
+    if (c_kind == c_null_char) then
+      write(stderr,101) 
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    array_kind = c_kind
+ 
+    101 format ('ERROR: Call to array_kind failed.')
+
+  end function
+
+  function array_type(inArrPtr)
+
+    character                     :: array_type
+    type(c_ptr), intent(in)       :: inArrPtr
+    character(kind=c_char)        :: c_kind
+
+    c_kind = tomlc99_toml_array_type(inArrPtr)
+
+    if (c_kind == c_null_char) then
+      write(stderr,101) 
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    array_type = c_kind
+ 
+    101 format ('ERROR: array type is unknown.')
+
+  end function
+
+  function array_nelem(inArrPtr)
+
+    integer                       :: array_nelem
+    type(c_ptr), intent(in)       :: inArrPtr
+
+    integer(c_int)                :: c_nelem
+
+    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
+    array_nelem = c_nelem
+
+  end function
+
+  subroutine get_array_int(inArrPtr, outArray)
+
+    type(c_ptr),                  intent(in)  :: inArrPtr
+    integer(int64), dimension(:), intent(out) :: outArray
+    
+    integer(c_int64_t), dimension(:), allocatable :: c_outArray
+    integer(c_int)                                :: c_nelem, c_idx, c_ierr
+    character(kind=c_char)                        :: c_kind, c_type
+    type(c_ptr)                                   :: tmpRaw
+    integer                                       :: idx
+    
+    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
+    c_kind      = tomlc99_toml_array_kind(inArrPtr)
+    c_type      = tomlc99_toml_array_type(inArrPtr)
+
+    if (c_nelem /= size(outArray)) then
+      write(stderr,101) c_nelem, size(outArray)
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    if (c_kind /= 'v') then
+      write(stderr,102) c_kind, 'v'
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    if (c_type /= 'i') then
+      write(stderr,103) c_type, 'i'
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    allocate(c_outArray(0:c_nelem-1)); c_outArray = 0
+
+    do idx=1,c_nelem
+      c_idx  = idx - 1
+      tmpRaw = tomlc99_toml_raw_at(inArrPtr, c_idx)
+      c_ierr = tomlc99_toml_rtoi(tmpRaw, c_outArray(c_idx))
+    enddo
+
+    outArray = c_outArray
+
+    101 format ('ERROR: the size of the toml array data (',i0,') does not ',&
+                'match the size of output array (',i0,').')
+    102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
+    103 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
+
+  end subroutine
+
+  subroutine get_array_dbl(inArrPtr, outArray)
+
+    type(c_ptr),                 intent(in) :: inArrPtr
+    real(real64), dimension(:), intent(out) :: outArray
+    
+    real(c_double), dimension(:), allocatable :: c_outArray
+    integer(c_int)                            :: c_nelem, c_idx, c_ierr
+    character(kind=c_char)                    :: c_kind, c_type
+    type(c_ptr)                               :: tmpRaw
+    integer                                   :: idx
+    
+    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
+    c_kind      = tomlc99_toml_array_kind(inArrPtr)
+    c_type      = tomlc99_toml_array_type(inArrPtr)
+
+    if (c_nelem /= size(outArray)) then
+      write(stderr,101) c_nelem, size(outArray)
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    if (c_kind /= 'v') then
+      write(stderr,102) c_kind, 'v'
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    if (c_type /= 'd') then
+      write(stderr,103) c_type, 'i'
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    allocate(c_outArray(0:c_nelem-1)); c_outArray = 0
+
+    do idx=1,c_nelem
+      c_idx  = idx - 1
+      tmpRaw = tomlc99_toml_raw_at(inArrPtr, c_idx)
+      c_ierr = tomlc99_toml_rtod(tmpRaw, c_outArray(c_idx))
+    enddo
+
+    outArray = c_outArray
+
+    101 format ('ERROR: the size of the toml array data (',i0,') does not ',&
+                'match the size of output array (',i0,').')
+    102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
+    103 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
+
+  end subroutine
 
   function get_key_strlen(inTblPtr, keyName)
 
@@ -163,7 +366,7 @@ module tomlc99
 
     if (c_associated(tmpRaw) .eqv. .false.) then
       write(stderr,101) trim(keyName)
-      get_key_strlen = -1
+      if (errorsFatal .eqv. .true.) error stop
       return
     endif
 
@@ -171,17 +374,17 @@ module tomlc99
 
     call c_f_pointer(c_outStr, fstring)
     get_key_strlen =  index(fstring, c_null_char)-1
+    call c_free(c_outStr)
 
     101 format ('ERROR: Failed to find key: ',a)
 
   end function
 
-  subroutine get_key_str(inTblPtr, keyName, outVal, ierr)
+  subroutine get_key_str(inTblPtr, keyName, outVal)
 
     type(c_ptr),      intent(in)  :: inTblPtr
     character(len=*), intent(in)  :: keyName 
     character(len=*), intent(out) :: outVal
-    integer(int32),   intent(out) :: ierr
 
     type(c_ptr)                    :: tmpRaw
     integer(c_int)                 :: c_ierr = 0
@@ -195,7 +398,7 @@ module tomlc99
 
     if (c_associated(tmpRaw) .eqv. .false.) then
       write(stderr,101) trim(keyName)
-      ierr = -1
+      if (errorsFatal .eqv. .true.) error stop
       return
     endif
 
@@ -206,44 +409,43 @@ module tomlc99
 
     if (strLen /= len(outVal)) then
       write(stderr,102) trim(keyName)
-      ierr = -1
+      if (errorsFatal .eqv. .true.) error stop
       return
     endif
 
     outVal = fstring(1:strLen)
+    call c_free(c_outStr)
 
     101 format ('ERROR: Failed to find key: ',a)
     102 format ('ERROR: Output string length does not match TOML data for key: ',a)
 
   end subroutine
 
-  subroutine get_key_int(inTblPtr, keyName, outVal, ierr)
+  subroutine get_key_int(inTblPtr, keyName, outVal)
 
     type(c_ptr),      intent(in)  :: inTblPtr
     character(len=*), intent(in)  :: keyName 
     integer(int64),   intent(out) :: outVal
-    integer(int32),   intent(out) :: ierr
 
     type(c_ptr)                   :: tmpRaw
     integer(c_int)                :: c_ierr = 0
     integer(c_int64_t)            :: c_outVal = 0
 
     outVal = 0
-    ierr   = 0
 
     tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
 
     if (c_associated(tmpRaw) .eqv. .false.) then
       write(stderr,101) trim(keyName)
-      ierr = -1
+      if (errorsFatal .eqv. .true.) error stop
       return
     endif
 
     c_ierr = tomlc99_toml_rtoi(tmpRaw, c_outVal)
-    ierr   = c_ierr
 
     if (c_ierr == -1) then
       write(stderr,102) trim(keyName)
+      if (errorsFatal .eqv. .true.) error stop
       return
     endif
 
@@ -254,33 +456,31 @@ module tomlc99
 
   end subroutine
 
-  subroutine get_key_dbl(inTblPtr, keyName, outVal, ierr)
+  subroutine get_key_dbl(inTblPtr, keyName, outVal)
 
     type(c_ptr),      intent(in)  :: inTblPtr
     character(len=*), intent(in)  :: keyName 
     real(real64),     intent(out) :: outVal
-    integer(int32),   intent(out) :: ierr
 
     type(c_ptr)                   :: tmpRaw
     integer(c_int)                :: c_ierr = 0
     real(c_double)                :: c_outVal = 0
 
     outVal = 0
-    ierr   = 0
 
     tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
 
     if (c_associated(tmpRaw) .eqv. .false.) then
       write(stderr,101) trim(keyName)
-      ierr = -1
+      if (errorsFatal .eqv. .true.) error stop
       return
     endif
 
     c_ierr = tomlc99_toml_rtod(tmpRaw, c_outVal)
-    ierr   = c_ierr
 
     if (c_ierr == -1) then
       write(stderr,102) trim(keyName)
+      if (errorsFatal .eqv. .true.) error stop
       return
     endif
 
@@ -288,6 +488,39 @@ module tomlc99
  
     101 format ('ERROR: Failed to find key: ',a)
     102 format ('ERROR: Failed double conversion for key: ',a)
+
+  end subroutine
+
+  subroutine get_key_bool(inTblPtr, keyName, outVal)
+
+    type(c_ptr),      intent(in)  :: inTblPtr
+    character(len=*), intent(in)  :: keyName 
+    logical,          intent(out) :: outVal
+
+    type(c_ptr)                   :: tmpRaw
+    integer(c_int)                :: c_ierr = 0
+    logical(kind=c_bool)          :: c_outVal
+
+    tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
+
+    if (c_associated(tmpRaw) .eqv. .false.) then
+      write(stderr,101) trim(keyName)
+      if (errorsFatal .eqv. .true.) error stop
+      return
+    endif
+
+    c_ierr = tomlc99_toml_rtob(tmpRaw, c_outVal)
+
+    if (c_ierr == -1) then
+      write(stderr,102) trim(keyName)
+      if (errorsFatal .eqv. .true.) error stop
+      return
+    endif
+
+    outVal = c_outVal
+ 
+    101 format ('ERROR: Failed to find key: ',a)
+    102 format ('ERROR: Failed bool conversion for key: ',a)
 
   end subroutine
 
@@ -309,12 +542,11 @@ module tomlc99
 
   end function
 
-  subroutine get_keyName_at_index(inTblPtr, keyIndex, keyName, ierr)
+  subroutine get_keyName_at_index(inTblPtr, keyIndex, keyName)
 
     type(c_ptr),      intent(in)  :: inTblPtr
     integer(int32),   intent(in)  :: keyIndex
     character(len=*), intent(out) :: keyName
-    integer(int32),   intent(out) :: ierr
 
     integer(c_int)                :: c_idx
     type(c_ptr)                   :: tmpKey
@@ -323,7 +555,6 @@ module tomlc99
 
     integer(int32)                :: keyLen
 
-    ierr   = 0
     c_idx  = keyIndex
     tmpKey = tomlc99_toml_key_in(inTblPtr, c_idx)
     call c_f_pointer(tmpKey, fstring)
@@ -331,7 +562,7 @@ module tomlc99
 
     if (keyLen /= len(keyName)) then
       write(stderr,101) trim(keyName)
-      ierr = -1
+      if (errorsFatal .eqv. .true.) error stop
       return
     endif
 

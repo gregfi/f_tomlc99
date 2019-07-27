@@ -6,3 +6,7 @@ title = "TOML Simple Example"
     host = "www.example.com"
     port = 80
     time = 123.4
+    intA = [ 1, 2, 3, 4, 5]
+    dblA = [1.0,2.0,3.0,4.0,5.0]
+
+    enabled = true
