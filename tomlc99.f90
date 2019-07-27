@@ -6,7 +6,7 @@ module tomlc99
 
   implicit none 
 
-  integer(int32), parameter :: maxStrLen = 65536
+  integer(int32), parameter :: maxStrLen = 262144
 
   interface
 

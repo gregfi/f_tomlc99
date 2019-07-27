@@ -1,0 +1,8 @@
+# This is a comment
+
+title = "TOML Simple Example"
+
+[server]
+    host = "www.example.com"
+    port = 80
+    time = 123.4
