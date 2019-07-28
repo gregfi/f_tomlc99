@@ -14,6 +14,9 @@ program example_program
   
   integer(int64), dimension(:), allocatable :: intArr
   real(real64),   dimension(:), allocatable :: dblArr
+  logical,        dimension(:), allocatable :: boolAr
+  character(len=:), &
+                  dimension(:), allocatable :: strArr
 
   filePtr = open_file("example_data.toml")
   tblPtr  = table_in(filePtr, "server")
@@ -57,5 +60,24 @@ program example_program
   allocate(dblArr(arrNelem)); dblArr = 0
   call get_array_dbl(arrPtr, dblArr)
   write(stdout, '(5(f6.1))') dblArr
+  
+  arrPtr   = array_in(tblPtr, "bArr")
+  arrKind  = array_kind(arrPtr) 
+  arrType  = array_type(arrPtr) 
+  arrNelem = array_nelem(arrPtr) 
+  write(stdout, '(a1,1x,a1,1x,i0)') arrKind, arrType, arrNelem
+  allocate(boolAr(arrNelem)); boolAr = .false.
+  call get_array_bool(arrPtr, boolAr)
+  write(stdout, '(5l2)') boolAr
+
+  arrPtr   = array_in(tblPtr, "strA")
+  arrKind  = array_kind(arrPtr) 
+  arrType  = array_type(arrPtr) 
+  arrNelem = array_nelem(arrPtr) 
+  strLen   = array_strlen(arrPtr)
+  write(stdout, '(a1,1x,a1,1x,i0,1x,i0)') arrKind, arrType, arrNelem, strLen
+  allocate(character(strLen) :: strArr(arrNelem))
+  call get_array_str(arrPtr, strArr)
+  write(stdout, '(5a8)') strArr
 
 end program

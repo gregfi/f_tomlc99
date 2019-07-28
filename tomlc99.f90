@@ -329,7 +329,7 @@ module tomlc99
     endif
 
     if (c_type /= 'd') then
-      write(stderr,103) c_type, 'i'
+      write(stderr,103) c_type, 'd'
       if (errorsFatal .eqv. .true.) error stop
     endif
 
@@ -347,6 +347,161 @@ module tomlc99
                 'match the size of output array (',i0,').')
     102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
     103 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
+
+  end subroutine
+
+  subroutine get_array_bool(inArrPtr, outArray)
+
+    type(c_ptr),                intent(in)  :: inArrPtr
+    logical,      dimension(:), intent(out) :: outArray
+    
+    logical(kind=c_bool),&
+                    dimension(:), allocatable :: c_outArray
+    integer(c_int)                            :: c_nelem, c_idx, c_ierr
+    character(kind=c_char)                    :: c_kind, c_type
+    type(c_ptr)                               :: tmpRaw
+    integer                                   :: idx
+    
+    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
+    c_kind      = tomlc99_toml_array_kind(inArrPtr)
+    c_type      = tomlc99_toml_array_type(inArrPtr)
+
+    if (c_nelem /= size(outArray)) then
+      write(stderr,101) c_nelem, size(outArray)
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    if (c_kind /= 'v') then
+      write(stderr,102) c_kind, 'v'
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    if (c_type /= 'b') then
+      write(stderr,103) c_type, 'b'
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    allocate(c_outArray(0:c_nelem-1)); c_outArray = .false.
+
+    do idx=1,c_nelem
+      c_idx  = idx - 1
+      tmpRaw = tomlc99_toml_raw_at(inArrPtr, c_idx)
+      c_ierr = tomlc99_toml_rtob(tmpRaw, c_outArray(c_idx))
+    enddo
+
+    outArray = c_outArray
+
+    101 format ('ERROR: the size of the toml array data (',i0,') does not ',&
+                'match the size of output array (',i0,').')
+    102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
+    103 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
+
+  end subroutine
+
+  function array_strlen(inArrPtr)
+
+    integer                     :: array_strlen
+    type(c_ptr), intent(in)     :: inArrPtr
+    
+    integer(c_int)              :: c_nelem, c_idx, c_ierr
+    character(kind=c_char)      :: c_kind, c_type
+    type(c_ptr)                 :: tmpRaw, c_outStr
+    integer                     :: idx, tmpStrLen
+    character(len=maxStrLen), &
+                        pointer :: fstring
+    
+    array_strlen = 0
+
+    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
+    c_kind      = tomlc99_toml_array_kind(inArrPtr)
+    c_type      = tomlc99_toml_array_type(inArrPtr)
+
+    if (c_kind /= 'v') then
+      write(stderr,102) c_kind, 'v'
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    if (c_type /= 's') then
+      write(stderr,103) c_type, 's'
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    do idx=1,c_nelem
+
+      c_idx  = idx - 1
+      tmpRaw = tomlc99_toml_raw_at(inArrPtr, c_idx)
+      c_ierr = tomlc99_toml_rtos(tmpRaw, c_outStr)
+
+      call c_f_pointer(c_outStr, fstring)
+      tmpStrLen = index(fstring, c_null_char)-1
+      call c_free(c_outStr)
+
+      array_strlen = max(array_strlen, tmpStrLen)
+
+    enddo
+
+    102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
+    103 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
+
+  end function
+
+  subroutine get_array_str(inArrPtr, outArray)
+
+    type(c_ptr),                intent(in)  :: inArrPtr
+    character(len=*), dimension(:), &
+                                intent(out) :: outArray
+    
+    integer(c_int)                          :: c_nelem, c_idx, c_ierr
+    character(kind=c_char)                  :: c_kind, c_type
+    type(c_ptr)                             :: tmpRaw, c_outStr
+    integer                                 :: idx, tmpStrLen, maxLen
+    character(len=maxStrLen),   pointer     :: fstring
+    
+    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
+    c_kind      = tomlc99_toml_array_kind(inArrPtr)
+    c_type      = tomlc99_toml_array_type(inArrPtr)
+
+    if (c_nelem /= size(outArray)) then
+      write(stderr,101) c_nelem, size(outArray)
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    if (c_kind /= 'v') then
+      write(stderr,102) c_kind, 'v'
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    if (c_type /= 's') then
+      write(stderr,103) c_type, 's'
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    maxLen = array_strlen(inArrPtr)
+    if (len(outArray) /= maxLen) then
+      write(stderr,104) maxLen, len(outArray)
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    do idx=1,c_nelem
+
+      c_idx  = idx - 1
+      tmpRaw = tomlc99_toml_raw_at(inArrPtr, c_idx)
+      c_ierr = tomlc99_toml_rtos(tmpRaw, c_outStr)
+
+      call c_f_pointer(c_outStr, fstring)
+      tmpStrLen = index(fstring, c_null_char)-1
+      outArray(idx) = fstring(1:tmpStrLen)
+
+      call c_free(c_outStr)
+
+    enddo
+
+    101 format ('ERROR: the size of the toml array data (',i0,') does not ',&
+                'match the size of output array (',i0,').')
+    102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
+    103 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
+    104 format ('ERROR: the maximum string length of the toml array data (',i0, &
+                ') does not match the size of output array (',i0,').')
 
   end subroutine
 
