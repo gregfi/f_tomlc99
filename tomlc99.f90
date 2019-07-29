@@ -96,7 +96,23 @@ module tomlc99
       integer(c_int), value  :: idx
     end function 
 
-   function tomlc99_toml_rtos(raw, outStr) bind(C,name="toml_rtos")
+    function tomlc99_toml_array_at(arrPtr, idx) &
+             bind(C,name="toml_array_at")
+      import                 :: c_ptr, c_int 
+      type(c_ptr)            :: tomlc99_toml_array_at
+      type(c_ptr), value     :: arrPtr
+      integer(c_int), value  :: idx
+    end function 
+
+    function tomlc99_toml_table_at(arrPtr, idx) &
+             bind(C,name="toml_table_at")
+      import                 :: c_ptr, c_int 
+      type(c_ptr)            :: tomlc99_toml_table_at
+      type(c_ptr), value     :: arrPtr
+      integer(c_int), value  :: idx
+    end function 
+
+    function tomlc99_toml_rtos(raw, outStr) bind(C,name="toml_rtos")
       import                 :: c_int, c_ptr, c_char
       integer(c_int)         :: tomlc99_toml_rtos
       type(c_ptr), value     :: raw
@@ -726,5 +742,34 @@ module tomlc99
     101 format ('ERROR: Output string length does not match TOML data for key: ',a)
 
   end subroutine
+
+  function inquire_key_type(inTblPtr, keyName)
+    character                    :: inquire_key_type
+    type(c_ptr),      intent(in) :: inTblPtr
+    character(len=*), intent(in) :: keyName
+
+    type(c_ptr)                  :: tmpRaw
+
+    inquire_key_type = c_null_char
+
+    tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
+    if (c_associated(tmpRaw) .eqv. .true.) then
+      inquire_key_type = "v"
+      return
+    endif
+
+    tmpRaw = tomlc99_toml_array_in(inTblPtr, trim(keyName) // c_null_char)
+    if (c_associated(tmpRaw) .eqv. .true.) then
+      inquire_key_type = "a"
+      return
+    endif
+
+    tmpRaw = tomlc99_toml_table_in(inTblPtr, trim(keyName) // c_null_char)
+    if (c_associated(tmpRaw) .eqv. .true.) then
+      inquire_key_type = "t"
+      return
+    endif
+
+  end function
 
 end module

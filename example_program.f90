@@ -1,7 +1,7 @@
 program example_program
   use iso_fortran_env, only : int64, real64, stdout => output_unit
   use tomlc99
-  use iso_c_binding, only : c_ptr
+  use iso_c_binding, only : c_ptr, c_null_char
   implicit none 
 
   type(c_ptr)                   :: filePtr, tblPtr, arrPtr
@@ -10,7 +10,7 @@ program example_program
   double precision              :: dblVal
   character(len=:), allocatable :: strVal
   logical                       :: boolVal
-  character                     :: arrType, arrKind
+  character                     :: arrType, arrKind, keyType
   
   integer(int64), dimension(:), allocatable :: intArr
   real(real64),   dimension(:), allocatable :: dblArr
@@ -79,5 +79,15 @@ program example_program
   allocate(character(strLen) :: strArr(arrNelem))
   call get_array_str(arrPtr, strArr)
   write(stdout, '(5a8)') strArr
+
+  write(stdout, '(2a)') "port: ", inquire_key_type(tblPtr, "port")
+  write(stdout, '(2a)') "bArr: ", inquire_key_type(tblPtr, "bArr")
+  write(stdout, '(2a)') "server: " , inquire_key_type(filePtr, "server")
+  keyType = inquire_key_type(filePtr, "notpresent")
+  if (keyType == c_null_char) then
+    write(stdout, '(2a)') "notpresent: ", "(c_null_char)" 
+  else
+    write(stdout, '(2a)') "notpresent: ", keyType
+  endif
 
 end program
