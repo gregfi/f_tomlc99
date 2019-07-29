@@ -194,12 +194,12 @@ module tomlc99
     table_in = tomlc99_toml_table_in(inTblPtr, &
                                      tblName // c_null_char)
 
-    if (c_associated(table_in) .eqv. .false.) then
-      write(stderr,101) trim(tblName)
-      if (errorsFatal .eqv. .true.) error stop
-    endif
- 
-    101 format ('ERROR: Failed to find table: ',a)
+!   if (c_associated(table_in) .eqv. .false.) then
+!     write(stderr,101) trim(tblName)
+!     if (errorsFatal .eqv. .true.) error stop
+!   endif
+!
+!   101 format ('ERROR: Failed to find table: ',a)
 
   end function
 
@@ -212,12 +212,12 @@ module tomlc99
     array_in = tomlc99_toml_array_in(inTblPtr, &
                                      arrayName // c_null_char)
 
-    if (c_associated(array_in) .eqv. .false.) then
-      write(stderr,101) trim(arrayName)
-      if (errorsFatal .eqv. .true.) error stop
-    endif
- 
-    101 format ('ERROR: Failed to find array: ',a)
+!   if (c_associated(array_in) .eqv. .false.) then
+!     write(stderr,101) trim(arrayName)
+!     if (errorsFatal .eqv. .true.) error stop
+!   endif
+!
+!   101 format ('ERROR: Failed to find array: ',a)
 
   end function
 
@@ -230,14 +230,14 @@ module tomlc99
 
     c_kind = tomlc99_toml_array_kind(inArrPtr)
 
-    if (c_kind == c_null_char) then
-      write(stderr,101) 
-      if (errorsFatal .eqv. .true.) error stop
-    endif
+!   if (c_kind == c_null_char) then
+!     write(stderr,101) 
+!     if (errorsFatal .eqv. .true.) error stop
+!   endif
 
     array_kind = c_kind
  
-    101 format ('ERROR: Call to array_kind failed.')
+!   101 format ('ERROR: Call to array_kind failed.')
 
   end function
 
@@ -249,14 +249,14 @@ module tomlc99
 
     c_kind = tomlc99_toml_array_type(inArrPtr)
 
-    if (c_kind == c_null_char) then
-      write(stderr,101) 
-      if (errorsFatal .eqv. .true.) error stop
-    endif
+!   if (c_kind == c_null_char) then
+!     write(stderr,101) 
+!     if (errorsFatal .eqv. .true.) error stop
+!   endif
 
     array_type = c_kind
  
-    101 format ('ERROR: array type is unknown.')
+!   101 format ('ERROR: array type is unknown.')
 
   end function
 
@@ -518,6 +518,76 @@ module tomlc99
     103 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
     104 format ('ERROR: the maximum string length of the toml array data (',i0, &
                 ') does not match the size of output array (',i0,').')
+
+  end subroutine
+
+  subroutine get_array_tbl(inArrPtr, outArray)
+
+    type(c_ptr),                intent(in)  :: inArrPtr
+    type(c_ptr), dimension(:),  intent(out) :: outArray
+    
+    integer(c_int)                          :: c_nelem, c_idx
+    character(kind=c_char)                  :: c_kind
+    integer                                 :: idx
+    
+    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
+    c_kind      = tomlc99_toml_array_kind(inArrPtr)
+
+    if (c_nelem /= size(outArray)) then
+      write(stderr,101) c_nelem, size(outArray)
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    if (c_kind /= 't') then
+      write(stderr,102) c_kind, 't'
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    do idx=1,c_nelem
+
+      c_idx  = idx - 1
+      outArray(idx) = tomlc99_toml_table_at(inArrPtr, c_idx)
+
+    enddo
+
+    101 format ('ERROR: the size of the toml array data (',i0,') does not ',&
+                'match the size of output array (',i0,').')
+    102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
+
+  end subroutine
+
+  subroutine get_array_arr(inArrPtr, outArray)
+
+    type(c_ptr),                intent(in)  :: inArrPtr
+    type(c_ptr), dimension(:),  intent(out) :: outArray
+    
+    integer(c_int)                          :: c_nelem, c_idx
+    character(kind=c_char)                  :: c_kind
+    integer                                 :: idx
+    
+    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
+    c_kind      = tomlc99_toml_array_kind(inArrPtr)
+
+    if (c_nelem /= size(outArray)) then
+      write(stderr,101) c_nelem, size(outArray)
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    if (c_kind /= 'a') then
+      write(stderr,102) c_kind, 'a'
+      if (errorsFatal .eqv. .true.) error stop
+    endif
+
+    do idx=1,c_nelem
+
+      c_idx  = idx - 1
+      outArray(idx) = tomlc99_toml_array_at(inArrPtr, c_idx)
+
+    enddo
+
+    101 format ('ERROR: the size of the toml array data (',i0,') does not ',&
+                'match the size of output array (',i0,').')
+    102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
 
   end subroutine
 
