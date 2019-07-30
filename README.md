@@ -7,7 +7,8 @@ See the `example_program.f90` file for available facilities. Note that timestamp
 
 The example code produces the following output on my machine:
 
-`first key string length: 5
+```
+first key string length: 5
 first key string value: title
 
 'host' type=s; length=15; value=www.example.com
@@ -39,4 +40,5 @@ points: array kind=t; #elem=3
 alt_points: array kind=a; #elem=3
        1.0   2.0   3.0
        4.0   5.0   6.0
-       7.0   8.0   9.0`
+       7.0   8.0   9.0
+```
