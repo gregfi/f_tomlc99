@@ -11,6 +11,8 @@ module tomlc99
 
   interface
 
+    ! interfaces to standard C library functions
+
     function c_fopen(fileName, mode) bind(C,name="fopen")
       import                 :: c_ptr, c_char
       type(c_ptr)            :: c_fopen
@@ -27,6 +29,8 @@ module tomlc99
       import                 :: c_ptr
       type(c_ptr), value     :: ptr
     end subroutine
+
+    ! interfaces to standard tomlc99 functions
 
     function tomlc99_toml_parse_file(filePtr, errBuf, errBufSz) &
              bind(C,name="toml_parse_file")
@@ -145,6 +149,11 @@ module tomlc99
   contains
 
   function open_file(fileName)
+
+    ! description: opens a TOML file named "fileName" and parses the data;
+    !              returns a c pointer to the root-level "toml_table_t" data 
+    !              structure. Errors are fatal.
+
     type(c_ptr)                     :: open_file
     character(len=*), intent(in)    :: fileName
     type(c_ptr)                     :: fh
@@ -178,6 +187,9 @@ module tomlc99
   end function
 
   subroutine write_error_buffer(errBuf)
+
+    ! description: writes error messages associated with the "parse" operation
+
     character(len=*, kind=c_char), intent(in) :: errBuf
     integer :: idx
     do idx=1,len(errBuf)
@@ -187,6 +199,11 @@ module tomlc99
   end subroutine
 
   function table_in(inTblPtr, tblName)
+
+    ! description: returns a c pointer to the table with name "tblName" 
+    !              contained in the "toml_table_t" structure referenced
+    !              by "inTblPtr". Returns c_null_ptr if "tblName" is not found.
+
     type(c_ptr)                   :: table_in
     type(c_ptr), intent(in)       :: inTblPtr
     character(len=*), intent(in)  :: tblName
@@ -204,6 +221,10 @@ module tomlc99
   end function
 
   function array_in(inTblPtr, arrayName)
+
+    ! description: returns a c pointer to the array with name "arrayName" 
+    !              contained in the "toml_table_t" structure referenced
+    !              by "inTblPtr". Returns c_null_ptr if "arrayName" is not found.
 
     type(c_ptr)                   :: array_in
     type(c_ptr),      intent(in)  :: inTblPtr
