@@ -7,7 +7,6 @@ module tomlc99
   implicit none 
 
   integer(int32), parameter :: maxStrLen = 262144
-  logical,        parameter :: errorsFatal = .true.
 
   interface
 
@@ -148,13 +147,13 @@ module tomlc99
 
   contains
 
-  function open_file(fileName)
+  function toml_parse_file(fileName)
 
     ! description: opens a TOML file named "fileName" and parses the data;
     !              returns a c pointer to the root-level "toml_table_t" data 
     !              structure. Errors are fatal.
 
-    type(c_ptr)                     :: open_file
+    type(c_ptr)                     :: toml_parse_file
     character(len=*), intent(in)    :: fileName
     type(c_ptr)                     :: fh
     character(len=512, kind=c_char) :: errBuf
@@ -167,9 +166,10 @@ module tomlc99
       error stop
     endif
 
-    open_file = tomlc99_toml_parse_file(fh, errBuf, len(errBuf, kind=c_int))
+    toml_parse_file = tomlc99_toml_parse_file(fh, errBuf, &
+                                              len(errBuf, kind=c_int))
 
-    if (c_associated(open_file) .eqv. .false.) then
+    if (c_associated(toml_parse_file) .eqv. .false.) then
       write(stderr,102) trim(fileName)
       call write_error_buffer(errBuf)
       error stop
@@ -192,108 +192,96 @@ module tomlc99
 
     character(len=*, kind=c_char), intent(in) :: errBuf
     integer :: idx
+
     do idx=1,len(errBuf)
       if (errBuf(idx:idx) == c_null_char) exit
     enddo
     write(stderr, '(a)') errBuf(1:idx)
+
   end subroutine
 
-  function table_in(inTblPtr, tblName)
+  function toml_table_in(inTblPtr, tblName)
 
     ! description: returns a c pointer to the table with name "tblName" 
     !              contained in the "toml_table_t" structure referenced
     !              by "inTblPtr". Returns c_null_ptr if "tblName" is not found.
 
-    type(c_ptr)                   :: table_in
+    type(c_ptr)                   :: toml_table_in
     type(c_ptr), intent(in)       :: inTblPtr
     character(len=*), intent(in)  :: tblName
 
-    table_in = tomlc99_toml_table_in(inTblPtr, &
-                                     tblName // c_null_char)
-
-!   if (c_associated(table_in) .eqv. .false.) then
-!     write(stderr,101) trim(tblName)
-!     if (errorsFatal .eqv. .true.) error stop
-!   endif
-!
-!   101 format ('ERROR: Failed to find table: ',a)
+    toml_table_in = tomlc99_toml_table_in(inTblPtr, &
+                                          tblName // c_null_char)
 
   end function
 
-  function array_in(inTblPtr, arrayName)
+  function toml_array_in(inTblPtr, arrayName)
 
     ! description: returns a c pointer to the array with name "arrayName" 
     !              contained in the "toml_table_t" structure referenced
     !              by "inTblPtr". Returns c_null_ptr if "arrayName" is not found.
 
-    type(c_ptr)                   :: array_in
+    type(c_ptr)                   :: toml_array_in
     type(c_ptr),      intent(in)  :: inTblPtr
     character(len=*), intent(in)  :: arrayName
 
-    array_in = tomlc99_toml_array_in(inTblPtr, &
-                                     arrayName // c_null_char)
-
-!   if (c_associated(array_in) .eqv. .false.) then
-!     write(stderr,101) trim(arrayName)
-!     if (errorsFatal .eqv. .true.) error stop
-!   endif
-!
-!   101 format ('ERROR: Failed to find array: ',a)
+    toml_array_in = tomlc99_toml_array_in(inTblPtr, &
+                                          arrayName // c_null_char)
 
   end function
 
-  function array_kind(inArrPtr)
+  function toml_array_kind(inArrPtr)
 
-    character                     :: array_kind
+    ! description: accepts a pointer to a "toml_array_t" data structure
+    !              and returns the kind; 'v' for value, 'a' for array, and
+    !              't' for table. 
+
+    character                     :: toml_array_kind
     type(c_ptr), intent(in)       :: inArrPtr
 
     character(kind=c_char)        :: c_kind
 
-    c_kind = tomlc99_toml_array_kind(inArrPtr)
-
-!   if (c_kind == c_null_char) then
-!     write(stderr,101) 
-!     if (errorsFatal .eqv. .true.) error stop
-!   endif
-
-    array_kind = c_kind
- 
-!   101 format ('ERROR: Call to array_kind failed.')
+    c_kind          = tomlc99_toml_array_kind(inArrPtr)
+    toml_array_kind = c_kind
 
   end function
 
-  function array_type(inArrPtr)
+  function toml_array_type(inArrPtr)
 
-    character                     :: array_type
+    ! description: for array type 'v', accepts a pointer to a "toml_array_t" 
+    !              data structure and returns the value type; 'i' for int, 'd'
+    !              for double, 'b' for bool, 's' for string
+
+    character                     :: toml_array_type
     type(c_ptr), intent(in)       :: inArrPtr
     character(kind=c_char)        :: c_kind
 
-    c_kind = tomlc99_toml_array_type(inArrPtr)
-
-!   if (c_kind == c_null_char) then
-!     write(stderr,101) 
-!     if (errorsFatal .eqv. .true.) error stop
-!   endif
-
-    array_type = c_kind
+    c_kind          = tomlc99_toml_array_type(inArrPtr)
+    toml_array_type = c_kind
  
-!   101 format ('ERROR: array type is unknown.')
-
   end function
 
-  function array_nelem(inArrPtr)
+  function toml_array_nelem(inArrPtr)
 
-    integer                       :: array_nelem
+    ! description: accepts a pointer to a "toml_array_t" data structure
+    !              structure and returns the value type; 'i' for int, 'd'
+    !              for double, 'b' for bool, 's' for string
+
+    integer                       :: toml_array_nelem
     type(c_ptr), intent(in)       :: inArrPtr
 
     integer(c_int)                :: c_nelem
 
-    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
-    array_nelem = c_nelem
+    c_nelem          = tomlc99_toml_array_nelem(inArrPtr)
+    toml_array_nelem = c_nelem
 
   end function
 
-  subroutine get_array_int(inArrPtr, outArray)
+  subroutine toml_get_array_int(inArrPtr, outArray)
+
+    ! description: accepts a pointer to a "toml_array_t" data structure
+    !              structure and returns an integer array. A fatal error
+    !              is issued if the parameters do not match
 
     type(c_ptr),                  intent(in)  :: inArrPtr
     integer(int64), dimension(:), intent(out) :: outArray
@@ -310,17 +298,17 @@ module tomlc99
 
     if (c_nelem /= size(outArray)) then
       write(stderr,101) c_nelem, size(outArray)
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     if (c_kind /= 'v') then
       write(stderr,102) c_kind, 'v'
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     if (c_type /= 'i') then
       write(stderr,103) c_type, 'i'
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     allocate(c_outArray(0:c_nelem-1)); c_outArray = 0
@@ -340,7 +328,11 @@ module tomlc99
 
   end subroutine
 
-  subroutine get_array_dbl(inArrPtr, outArray)
+  subroutine toml_get_array_dbl(inArrPtr, outArray)
+
+    ! description: accepts a pointer to a "toml_array_t" data structure
+    !              structure and returns an double array. A fatal error
+    !              is issued if the parameters do not match
 
     type(c_ptr),                 intent(in) :: inArrPtr
     real(real64), dimension(:), intent(out) :: outArray
@@ -357,17 +349,17 @@ module tomlc99
 
     if (c_nelem /= size(outArray)) then
       write(stderr,101) c_nelem, size(outArray)
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     if (c_kind /= 'v') then
       write(stderr,102) c_kind, 'v'
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     if (c_type /= 'd') then
       write(stderr,103) c_type, 'd'
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     allocate(c_outArray(0:c_nelem-1)); c_outArray = 0
@@ -387,7 +379,11 @@ module tomlc99
 
   end subroutine
 
-  subroutine get_array_bool(inArrPtr, outArray)
+  subroutine toml_get_array_bool(inArrPtr, outArray)
+
+    ! description: accepts a pointer to a "toml_array_t" data structure
+    !              structure and returns an logical array. A fatal error
+    !              is issued if the parameters do not match
 
     type(c_ptr),                intent(in)  :: inArrPtr
     logical,      dimension(:), intent(out) :: outArray
@@ -405,17 +401,17 @@ module tomlc99
 
     if (c_nelem /= size(outArray)) then
       write(stderr,101) c_nelem, size(outArray)
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     if (c_kind /= 'v') then
       write(stderr,102) c_kind, 'v'
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     if (c_type /= 'b') then
       write(stderr,103) c_type, 'b'
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     allocate(c_outArray(0:c_nelem-1)); c_outArray = .false.
@@ -435,9 +431,13 @@ module tomlc99
 
   end subroutine
 
-  function array_strlen(inArrPtr)
+  function toml_array_strlen(inArrPtr)
 
-    integer                     :: array_strlen
+    ! description: accepts a pointer to a "toml_array_t" data structure
+    !              structure and returns the maximum string length in the
+    !              array. A fatal error is issued if the parameters do not match
+
+    integer                     :: toml_array_strlen
     type(c_ptr), intent(in)     :: inArrPtr
     
     integer(c_int)              :: c_nelem, c_idx, c_ierr
@@ -447,20 +447,20 @@ module tomlc99
     character(len=maxStrLen), &
                         pointer :: fstring
     
-    array_strlen = 0
+    toml_array_strlen = 0
 
-    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
-    c_kind      = tomlc99_toml_array_kind(inArrPtr)
-    c_type      = tomlc99_toml_array_type(inArrPtr)
+    c_nelem           = tomlc99_toml_array_nelem(inArrPtr)
+    c_kind            = tomlc99_toml_array_kind(inArrPtr)
+    c_type            = tomlc99_toml_array_type(inArrPtr)
 
     if (c_kind /= 'v') then
       write(stderr,102) c_kind, 'v'
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     if (c_type /= 's') then
       write(stderr,103) c_type, 's'
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     do idx=1,c_nelem
@@ -473,7 +473,7 @@ module tomlc99
       tmpStrLen = index(fstring, c_null_char)-1
       call c_free(c_outStr)
 
-      array_strlen = max(array_strlen, tmpStrLen)
+      toml_array_strlen = max(toml_array_strlen, tmpStrLen)
 
     enddo
 
@@ -482,7 +482,11 @@ module tomlc99
 
   end function
 
-  subroutine get_array_str(inArrPtr, outArray)
+  subroutine toml_get_array_str(inArrPtr, outArray)
+
+    ! description: accepts a pointer to a "toml_array_t" data structure
+    !              structure and returns the a string array. A fatal error is 
+    !              issued if the parameters do not match
 
     type(c_ptr),                intent(in)  :: inArrPtr
     character(len=*), dimension(:), &
@@ -500,23 +504,23 @@ module tomlc99
 
     if (c_nelem /= size(outArray)) then
       write(stderr,101) c_nelem, size(outArray)
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     if (c_kind /= 'v') then
       write(stderr,102) c_kind, 'v'
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     if (c_type /= 's') then
       write(stderr,103) c_type, 's'
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
-    maxLen = array_strlen(inArrPtr)
+    maxLen = toml_array_strlen(inArrPtr)
     if (len(outArray) /= maxLen) then
       write(stderr,104) maxLen, len(outArray)
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     do idx=1,c_nelem
@@ -542,7 +546,12 @@ module tomlc99
 
   end subroutine
 
-  subroutine get_array_tbl(inArrPtr, outArray)
+  subroutine toml_get_array_tbl(inArrPtr, outArray)
+
+    ! description: accepts a pointer to a "toml_array_t" data structure
+    !              structure and returns an array of pointers to subordinate
+    !              tables. A fatal error is issued if the parameters do not 
+    !              match.
 
     type(c_ptr),                intent(in)  :: inArrPtr
     type(c_ptr), dimension(:),  intent(out) :: outArray
@@ -556,12 +565,12 @@ module tomlc99
 
     if (c_nelem /= size(outArray)) then
       write(stderr,101) c_nelem, size(outArray)
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     if (c_kind /= 't') then
       write(stderr,102) c_kind, 't'
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     do idx=1,c_nelem
@@ -577,7 +586,12 @@ module tomlc99
 
   end subroutine
 
-  subroutine get_array_arr(inArrPtr, outArray)
+  subroutine toml_get_array_arr(inArrPtr, outArray)
+
+    ! description: accepts a pointer to a "toml_array_t" data structure
+    !              structure and returns an array of pointers to subordinate
+    !              arrays. A fatal error is issued if the parameters do not 
+    !              match.
 
     type(c_ptr),                intent(in)  :: inArrPtr
     type(c_ptr), dimension(:),  intent(out) :: outArray
@@ -591,12 +605,12 @@ module tomlc99
 
     if (c_nelem /= size(outArray)) then
       write(stderr,101) c_nelem, size(outArray)
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     if (c_kind /= 'a') then
       write(stderr,102) c_kind, 'a'
-      if (errorsFatal .eqv. .true.) error stop
+      error stop
     endif
 
     do idx=1,c_nelem
@@ -612,13 +626,18 @@ module tomlc99
 
   end subroutine
 
-  function get_key_strlen(inTblPtr, keyName)
+  function toml_get_val_strlen(inTblPtr, keyName)
 
-    integer(int32)                :: get_key_strlen
+    ! description: accepts a pointer to a "toml_table_t" data structure
+    !              and a key name for a string; returns the string length.
+    !              If the parameters do not match, a fatal error is issued.
+
+    integer(int32)                :: toml_get_val_strlen
     type(c_ptr),      intent(in)  :: inTblPtr
     character(len=*), intent(in)  :: keyName 
 
     type(c_ptr)                   :: tmpRaw
+    character                     :: valType
     integer(c_int)                :: c_ierr = 0
     type(c_ptr)                   :: c_outStr
 
@@ -628,27 +647,39 @@ module tomlc99
 
     if (c_associated(tmpRaw) .eqv. .false.) then
       write(stderr,101) trim(keyName)
-      if (errorsFatal .eqv. .true.) error stop
-      return
+      error stop
+    endif
+
+    valType = toml_inquire_val_type(inTblPtr, trim(keyName) // c_null_char)
+    if (valType /= "s") then
+      write(stderr,102) trim(keyName), valType, "s"
+      error stop
     endif
 
     c_ierr = tomlc99_toml_rtos(tmpRaw, c_outStr)
 
     call c_f_pointer(c_outStr, fstring)
-    get_key_strlen =  index(fstring, c_null_char)-1
+    toml_get_val_strlen =  index(fstring, c_null_char)-1
     call c_free(c_outStr)
 
     101 format ('ERROR: Failed to find key: ',a)
+    102 format ('ERROR: Key "',a,'" has type "',a,&
+                        '", but the output array is type "',a,'"')
 
   end function
 
-  subroutine get_key_str(inTblPtr, keyName, outVal)
+  subroutine toml_get_val_str(inTblPtr, keyName, outVal)
+
+    ! description: accepts a pointer to a "toml_table_t" data structure
+    !              and a key name for a string; returns the string value.
+    !              If the parameters do not match, a fatal error is issued.
 
     type(c_ptr),      intent(in)  :: inTblPtr
     character(len=*), intent(in)  :: keyName 
     character(len=*), intent(out) :: outVal
 
     type(c_ptr)                    :: tmpRaw
+    character                      :: valType
     integer(c_int)                 :: c_ierr = 0
     type(c_ptr)                    :: c_outStr
 
@@ -660,8 +691,13 @@ module tomlc99
 
     if (c_associated(tmpRaw) .eqv. .false.) then
       write(stderr,101) trim(keyName)
-      if (errorsFatal .eqv. .true.) error stop
-      return
+      error stop
+    endif
+
+    valType = toml_inquire_val_type(inTblPtr, trim(keyName) // c_null_char)
+    if (valType /= "s") then
+      write(stderr,102) trim(keyName), valType, "s"
+      error stop
     endif
 
     c_ierr = tomlc99_toml_rtos(tmpRaw, c_outStr)
@@ -670,61 +706,77 @@ module tomlc99
     strLen =  index(fstring, c_null_char)-1
 
     if (strLen /= len(outVal)) then
-      write(stderr,102) trim(keyName)
-      if (errorsFatal .eqv. .true.) error stop
-      return
+      write(stderr,103) trim(keyName)
+      error stop
     endif
 
     outVal = fstring(1:strLen)
     call c_free(c_outStr)
 
     101 format ('ERROR: Failed to find key: ',a)
-    102 format ('ERROR: Output string length does not match TOML data for key: ',a)
+    102 format ('ERROR: Key "',a,'" has type "',a,&
+                        '", but the output array is type "',a,'"')
+    103 format ('ERROR: Output string length does not match TOML data for key: ',a)
 
   end subroutine
 
-  subroutine get_key_int(inTblPtr, keyName, outVal)
+  subroutine toml_get_val_int(inTblPtr, keyName, outVal)
+
+    ! description: accepts a pointer to a "toml_table_t" data structure
+    !              and a key name for an int; returns the int value.
+    !              If the parameters do not match, a fatal error is issued.
 
     type(c_ptr),      intent(in)  :: inTblPtr
     character(len=*), intent(in)  :: keyName 
     integer(int64),   intent(out) :: outVal
 
     type(c_ptr)                   :: tmpRaw
+    character                     :: valType
     integer(c_int)                :: c_ierr = 0
     integer(c_int64_t)            :: c_outVal = 0
 
     outVal = 0
-
     tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
 
     if (c_associated(tmpRaw) .eqv. .false.) then
       write(stderr,101) trim(keyName)
-      if (errorsFatal .eqv. .true.) error stop
-      return
+      error stop
+    endif
+
+    valType = toml_inquire_val_type(inTblPtr, trim(keyName) // c_null_char)
+    if (valType /= "i") then
+      write(stderr,102) trim(keyName), valType, "i"
+      error stop
     endif
 
     c_ierr = tomlc99_toml_rtoi(tmpRaw, c_outVal)
 
     if (c_ierr == -1) then
-      write(stderr,102) trim(keyName)
-      if (errorsFatal .eqv. .true.) error stop
-      return
+      write(stderr,103) trim(keyName)
+      error stop
     endif
 
     outVal = c_outVal
  
     101 format ('ERROR: Failed to find key: ',a)
-    102 format ('ERROR: Failed integer conversion for key: ',a)
+    102 format ('ERROR: Key "',a,'" has type "',a,&
+                        '", but the output array is type "',a,'"')
+    103 format ('ERROR: Failed integer conversion for key: ',a)
 
   end subroutine
 
-  subroutine get_key_dbl(inTblPtr, keyName, outVal)
+  subroutine toml_get_val_dbl(inTblPtr, keyName, outVal)
+
+    ! description: accepts a pointer to a "toml_table_t" data structure
+    !              and a key name for a double; returns the double value.
+    !              If the parameters do not match, a fatal error is issued.
 
     type(c_ptr),      intent(in)  :: inTblPtr
     character(len=*), intent(in)  :: keyName 
     real(real64),     intent(out) :: outVal
 
     type(c_ptr)                   :: tmpRaw
+    character                     :: valType
     integer(c_int)                :: c_ierr = 0
     real(c_double)                :: c_outVal = 0
 
@@ -734,32 +786,43 @@ module tomlc99
 
     if (c_associated(tmpRaw) .eqv. .false.) then
       write(stderr,101) trim(keyName)
-      if (errorsFatal .eqv. .true.) error stop
-      return
+      error stop
+    endif
+
+    valType = toml_inquire_val_type(inTblPtr, trim(keyName) // c_null_char)
+    if (valType /= "d") then
+      write(stderr,102) trim(keyName), valType, "d"
+      error stop
     endif
 
     c_ierr = tomlc99_toml_rtod(tmpRaw, c_outVal)
 
     if (c_ierr == -1) then
-      write(stderr,102) trim(keyName)
-      if (errorsFatal .eqv. .true.) error stop
-      return
+      write(stderr,103) trim(keyName)
+      error stop
     endif
 
     outVal = c_outVal
  
     101 format ('ERROR: Failed to find key: ',a)
-    102 format ('ERROR: Failed double conversion for key: ',a)
+    102 format ('ERROR: Key "',a,'" has type "',a,&
+                        '", but the output array is type "',a,'"')
+    103 format ('ERROR: Failed double conversion for key: ',a)
 
   end subroutine
 
-  subroutine get_key_bool(inTblPtr, keyName, outVal)
+  subroutine toml_get_val_bool(inTblPtr, keyName, outVal)
+
+    ! description: accepts a pointer to a "toml_table_t" data structure
+    !              and a key name for a bool; returns the logical value.
+    !              If the parameters do not match, a fatal error is issued.
 
     type(c_ptr),      intent(in)  :: inTblPtr
     character(len=*), intent(in)  :: keyName 
     logical,          intent(out) :: outVal
 
     type(c_ptr)                   :: tmpRaw
+    character                     :: valType
     integer(c_int)                :: c_ierr = 0
     logical(kind=c_bool)          :: c_outVal
 
@@ -767,28 +830,38 @@ module tomlc99
 
     if (c_associated(tmpRaw) .eqv. .false.) then
       write(stderr,101) trim(keyName)
-      if (errorsFatal .eqv. .true.) error stop
-      return
+      error stop
+    endif
+
+    valType = toml_inquire_val_type(inTblPtr, trim(keyName) // c_null_char)
+    if (valType /= "b") then
+      write(stderr,102) trim(keyName), valType, "b"
+      error stop
     endif
 
     c_ierr = tomlc99_toml_rtob(tmpRaw, c_outVal)
 
     if (c_ierr == -1) then
-      write(stderr,102) trim(keyName)
-      if (errorsFatal .eqv. .true.) error stop
-      return
+      write(stderr,103) trim(keyName)
+      error stop
     endif
 
     outVal = c_outVal
  
     101 format ('ERROR: Failed to find key: ',a)
-    102 format ('ERROR: Failed bool conversion for key: ',a)
+    102 format ('ERROR: Key "',a,'" has type "',a,&
+                        '", but the output array is type "',a,'"')
+    103 format ('ERROR: Failed bool conversion for key: ',a)
 
   end subroutine
 
-  function get_keyLen_at_index(inTblPtr, keyIndex)
+  function toml_get_keyLen_at_index(inTblPtr, keyIndex)
 
-    integer(int32)              :: get_keyLen_at_index
+    ! description: accepts a pointer to a "toml_table_t" data structure
+    !              and an index number (starting at 1; Fortran convention);
+    !              returns the string length of the key name.
+
+    integer(int32)              :: toml_get_keyLen_at_index
     type(c_ptr),    intent(in)  :: inTblPtr
     integer(int32), intent(in)  :: keyIndex
 
@@ -800,11 +873,16 @@ module tomlc99
     c_idx  = keyIndex
     tmpKey = tomlc99_toml_key_in(inTblPtr, c_idx)
     call c_f_pointer(tmpKey, fstring)
-    get_keyLen_at_index = index(fstring, c_null_char)-1
+    toml_get_keyLen_at_index = index(fstring, c_null_char)-1
 
   end function
 
-  subroutine get_keyName_at_index(inTblPtr, keyIndex, keyName)
+  subroutine toml_get_keyName_at_index(inTblPtr, keyIndex, keyName)
+
+    ! description: accepts a pointer to a "toml_table_t" data structure
+    !              and an index number (starting at 1; Fortran convention);
+    !              returns the string value of the key name. If a length
+    !              mismatch is detected, a fatal error is issued.
 
     type(c_ptr),      intent(in)  :: inTblPtr
     integer(int32),   intent(in)  :: keyIndex
@@ -824,8 +902,7 @@ module tomlc99
 
     if (keyLen /= len(keyName)) then
       write(stderr,101) trim(keyName)
-      if (errorsFatal .eqv. .true.) error stop
-      return
+      error stop
     endif
 
     keyName = fstring(1:keyLen)
@@ -834,32 +911,93 @@ module tomlc99
 
   end subroutine
 
-  function inquire_key_type(inTblPtr, keyName)
-    character                    :: inquire_key_type
+  function toml_inquire_key_kind(inTblPtr, keyName)
+
+    ! description: accepts a pointer to a "toml_table_t" data structure
+    !              and an key name; returns 'v' for value, 'a' for array, 
+    !              't' for table, or c_null_char for key-not-found
+
+    character                    :: toml_inquire_key_kind
     type(c_ptr),      intent(in) :: inTblPtr
     character(len=*), intent(in) :: keyName
 
     type(c_ptr)                  :: tmpRaw
 
-    inquire_key_type = c_null_char
+    toml_inquire_key_kind = c_null_char
 
     tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
     if (c_associated(tmpRaw) .eqv. .true.) then
-      inquire_key_type = "v"
+      toml_inquire_key_kind = "v"
       return
     endif
 
     tmpRaw = tomlc99_toml_array_in(inTblPtr, trim(keyName) // c_null_char)
     if (c_associated(tmpRaw) .eqv. .true.) then
-      inquire_key_type = "a"
+      toml_inquire_key_kind = "a"
       return
     endif
 
     tmpRaw = tomlc99_toml_table_in(inTblPtr, trim(keyName) // c_null_char)
     if (c_associated(tmpRaw) .eqv. .true.) then
-      inquire_key_type = "t"
+      toml_inquire_key_kind = "t"
       return
     endif
+
+  end function
+
+  function toml_inquire_val_type(inTblPtr, keyName)
+
+    ! description: accepts a pointer to a "toml_table_t" data structure
+    !              and an key name for a value kind; returns 's' for string, 
+    !              'i' for int, 'b' for bool, 'd' for double, or c_null_char 
+    !              for key-not-found. Timestamp data yields a fatal error 
+    !              (for now), as it has not been implemented
+
+    character                    :: toml_inquire_val_type
+    type(c_ptr),      intent(in) :: inTblPtr
+    character(len=*), intent(in) :: keyName
+
+    type(c_ptr)                  :: tmpRaw, c_outChar
+    integer(c_int)               :: c_ierr
+    logical(kind=c_bool)         :: c_outBool
+    real(c_double)               :: c_outDbl
+    integer(c_int64_t)           :: c_outInt
+
+    toml_inquire_val_type = c_null_char
+    tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
+
+    if (c_associated(tmpRaw) .eqv. .false.) then
+      toml_inquire_val_type = c_null_char
+      return
+    endif
+
+    c_ierr = tomlc99_toml_rtos(tmpRaw, c_outChar)
+    if (c_ierr == 0) then
+      toml_inquire_val_type = "s"
+      return
+    endif
+
+    c_ierr = tomlc99_toml_rtoi(tmpRaw, c_outInt)
+    if (c_ierr == 0) then
+      toml_inquire_val_type = "i"
+      return
+    endif
+
+    c_ierr = tomlc99_toml_rtob(tmpRaw, c_outBool)
+    if (c_ierr == 0) then
+      toml_inquire_val_type = "b"
+      return
+    endif
+
+    c_ierr = tomlc99_toml_rtod(tmpRaw, c_outDbl)
+    if (c_ierr == 0) then
+      toml_inquire_val_type = "d"
+      return
+    endif
+
+    write(stderr, '(3a)') 'ERROR: unknown type for key "', &
+                          keyName, '"'
+    error stop
 
   end function
 
