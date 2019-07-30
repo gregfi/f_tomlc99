@@ -264,8 +264,7 @@ module tomlc99
   function toml_array_nelem(inArrPtr)
 
     ! description: accepts a pointer to a "toml_array_t" data structure
-    !              structure and returns the value type; 'i' for int, 'd'
-    !              for double, 'b' for bool, 's' for string
+    !              structure and returns the number of elements in the array
 
     integer                       :: toml_array_nelem
     type(c_ptr), intent(in)       :: inArrPtr
@@ -485,7 +484,7 @@ module tomlc99
   subroutine toml_get_array_str(inArrPtr, outArray)
 
     ! description: accepts a pointer to a "toml_array_t" data structure
-    !              structure and returns the a string array. A fatal error is 
+    !              structure and returns a string array. A fatal error is 
     !              issued if the parameters do not match
 
     type(c_ptr),                intent(in)  :: inArrPtr
@@ -549,7 +548,7 @@ module tomlc99
   subroutine toml_get_array_tbl(inArrPtr, outArray)
 
     ! description: accepts a pointer to a "toml_array_t" data structure
-    !              structure and returns an array of pointers to subordinate
+    !              structure and returns an array of pointers to the enclosed
     !              tables. A fatal error is issued if the parameters do not 
     !              match.
 
@@ -589,7 +588,7 @@ module tomlc99
   subroutine toml_get_array_arr(inArrPtr, outArray)
 
     ! description: accepts a pointer to a "toml_array_t" data structure
-    !              structure and returns an array of pointers to subordinate
+    !              structure and returns an array of pointers to the enclosed
     !              arrays. A fatal error is issued if the parameters do not 
     !              match.
 
@@ -858,7 +857,7 @@ module tomlc99
   function toml_get_keyLen_at_index(inTblPtr, keyIndex)
 
     ! description: accepts a pointer to a "toml_table_t" data structure
-    !              and an index number (starting at 1; Fortran convention);
+    !              and an index number (starting with 0, C convention);
     !              returns the string length of the key name.
 
     integer(int32)              :: toml_get_keyLen_at_index
@@ -880,7 +879,7 @@ module tomlc99
   subroutine toml_get_keyName_at_index(inTblPtr, keyIndex, keyName)
 
     ! description: accepts a pointer to a "toml_table_t" data structure
-    !              and an index number (starting at 1; Fortran convention);
+    !              and an index number (starting wth 0, C convention);
     !              returns the string value of the key name. If a length
     !              mismatch is detected, a fatal error is issued.
 
