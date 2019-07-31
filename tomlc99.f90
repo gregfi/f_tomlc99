@@ -8,6 +8,23 @@ module tomlc99
 
   integer(int32), parameter :: maxStrLen = 262144
 
+  type, bind(c) :: bufferType
+    integer(c_int)         :: year, month, day
+    integer(c_int)         :: hour, minute, second
+    character(kind=c_char) :: z(10)
+  end type
+
+  type, bind(c) :: timestampType
+    type(bufferType) :: buffer 
+    type(c_ptr)      :: year, month, day
+    type(c_ptr)      :: hour, minute, second
+  end type
+
+  type :: toml_time
+    integer          :: year, month, day
+    integer          :: hour, minute, second
+  end type
+
   interface
 
     ! interfaces to standard C library functions
@@ -131,7 +148,7 @@ module tomlc99
 
     function tomlc99_toml_rtod(raw, outDbl) bind(C,name="toml_rtod")
       import                 :: c_ptr, c_int, c_double
-      integer(c_int)         :: tomlc99_toml_rtoi
+      integer(c_int)         :: tomlc99_toml_rtod
       type(c_ptr), value     :: raw
       real(c_double)         :: outDbl
     end function 
@@ -142,6 +159,14 @@ module tomlc99
       type(c_ptr), value     :: raw
       logical(c_bool)        :: outBool
     end function 
+
+    function tomlc99_toml_rtots(raw, outTime) bind(C,name="toml_rtots")
+      import                 :: c_ptr, c_int, timestampType
+      integer(c_int)         :: tomlc99_toml_rtots
+      type(c_ptr), value     :: raw
+      type(timestampType)    :: outTime
+    end function 
+
 
   end interface
 
@@ -764,6 +789,50 @@ module tomlc99
 
   end subroutine
 
+  subroutine toml_get_val_bool(inTblPtr, keyName, outVal)
+
+    ! description: accepts a pointer to a "toml_table_t" data structure
+    !              and a key name for a bool; returns the logical value.
+    !              If the parameters do not match, a fatal error is issued.
+
+    type(c_ptr),      intent(in)  :: inTblPtr
+    character(len=*), intent(in)  :: keyName 
+    logical,          intent(out) :: outVal
+
+    type(c_ptr)                   :: tmpRaw
+    character                     :: valType
+    integer(c_int)                :: c_ierr = 0
+    logical(kind=c_bool)          :: c_outVal
+
+    tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
+
+    if (c_associated(tmpRaw) .eqv. .false.) then
+      write(stderr,101) trim(keyName)
+      error stop
+    endif
+
+    valType = toml_inquire_val_type(inTblPtr, trim(keyName) // c_null_char)
+    if (valType /= "b") then
+      write(stderr,102) trim(keyName), valType, "b"
+      error stop
+    endif
+
+    c_ierr = tomlc99_toml_rtob(tmpRaw, c_outVal)
+
+    if (c_ierr == -1) then
+      write(stderr,103) trim(keyName)
+      error stop
+    endif
+
+    outVal = c_outVal
+ 
+    101 format ('ERROR: Failed to find key: ',a)
+    102 format ('ERROR: Key "',a,'" has type "',a,&
+                        '", but the output array is type "',a,'"')
+    103 format ('ERROR: Failed bool conversion for key: ',a)
+
+  end subroutine
+
   subroutine toml_get_val_dbl(inTblPtr, keyName, outVal)
 
     ! description: accepts a pointer to a "toml_table_t" data structure
@@ -810,20 +879,28 @@ module tomlc99
 
   end subroutine
 
-  subroutine toml_get_val_bool(inTblPtr, keyName, outVal)
+  subroutine toml_get_val_ts(inTblPtr, keyName, outTime)
 
     ! description: accepts a pointer to a "toml_table_t" data structure
-    !              and a key name for a bool; returns the logical value.
+    !              and a key name for a double; returns the time stamp.
     !              If the parameters do not match, a fatal error is issued.
 
     type(c_ptr),      intent(in)  :: inTblPtr
     character(len=*), intent(in)  :: keyName 
-    logical,          intent(out) :: outVal
+    type(toml_time),  intent(out) :: outTime
 
     type(c_ptr)                   :: tmpRaw
     character                     :: valType
     integer(c_int)                :: c_ierr = 0
-    logical(kind=c_bool)          :: c_outVal
+    type(timestampType)           :: c_outTime
+    integer, pointer              :: tmpInt
+
+    outTime%year   = 0
+    outTime%month  = 0
+    outTime%day    = 0
+    outTime%hour   = 0
+    outTime%minute = 0
+    outTime%second = 0
 
     tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
 
@@ -833,26 +910,43 @@ module tomlc99
     endif
 
     valType = toml_inquire_val_type(inTblPtr, trim(keyName) // c_null_char)
-    if (valType /= "b") then
-      write(stderr,102) trim(keyName), valType, "b"
+    if (valType /= "t" .and. valType /= "T" .and. valType /= "d") then
+      write(stderr,102) trim(keyName), valType, "t || T || d"
       error stop
     endif
 
-    c_ierr = tomlc99_toml_rtob(tmpRaw, c_outVal)
+    c_ierr = tomlc99_toml_rtots(tmpRaw, c_outTime)
 
     if (c_ierr == -1) then
       write(stderr,103) trim(keyName)
       error stop
     endif
 
-    outVal = c_outVal
- 
+    call c_f_pointer(c_outTime%year,  tmpInt)
+    if (c_associated(c_outTime%year)) then
+      outTime % year  = tmpInt
+      call c_f_pointer(c_outTime%month, tmpInt)
+      outTime % month = tmpInt
+      call c_f_pointer(c_outTime%day,   tmpInt)
+      outTime % day   = tmpInt
+    endif
+
+    call c_f_pointer(c_outTime%hour,  tmpInt)
+    if (c_associated(c_outTime%hour)) then
+      outTime % hour  = tmpInt
+      call c_f_pointer(c_outTime%minute, tmpInt)
+      outTime % minute= tmpInt
+      call c_f_pointer(c_outTime%second, tmpInt)
+      outTime % second= tmpInt
+    endif
+
     101 format ('ERROR: Failed to find key: ',a)
     102 format ('ERROR: Key "',a,'" has type "',a,&
                         '", but the output array is type "',a,'"')
-    103 format ('ERROR: Failed bool conversion for key: ',a)
+    103 format ('ERROR: Failed double conversion for key: ',a)
 
   end subroutine
+
 
   function toml_get_keyLen_at_index(inTblPtr, keyIndex)
 
@@ -961,6 +1055,8 @@ module tomlc99
     logical(kind=c_bool)         :: c_outBool
     real(c_double)               :: c_outDbl
     integer(c_int64_t)           :: c_outInt
+    type(timestampType)          :: c_outTime
+    integer, pointer             :: tsYearVal, tsHourVal
 
     toml_inquire_val_type = c_null_char
     tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
@@ -991,6 +1087,19 @@ module tomlc99
     c_ierr = tomlc99_toml_rtod(tmpRaw, c_outDbl)
     if (c_ierr == 0) then
       toml_inquire_val_type = "d"
+      return
+    endif
+
+    c_ierr = tomlc99_toml_rtots(tmpRaw, c_outTime)
+    if (c_ierr == 0) then
+      if (c_associated(c_outTime%year) .and. &
+          c_associated(c_outTime%hour)) then
+        toml_inquire_val_type = "T"
+      elseif (c_associated(c_outTime%year)) then
+        toml_inquire_val_type = "d"
+      elseif (c_associated(c_outTime%hour)) then
+        toml_inquire_val_type = "t"
+      endif
       return
     endif
 
