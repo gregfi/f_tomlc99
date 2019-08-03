@@ -1009,7 +1009,7 @@ module tomlc99
     type(timestampType), intent(in)  :: c_time
     type(toml_time),     intent(out) :: f_time
 
-    integer                          :: c_ierr
+    integer                          :: idx
     integer, pointer                 :: tmpInt
     character(len=10), pointer       :: tmpChar
 
@@ -1033,7 +1033,8 @@ module tomlc99
 
     if (c_associated(c_time%z)) then
       call c_f_pointer(c_time%z,  tmpchar)
-      f_time % offset = tmpChar
+      idx = index(tmpChar,c_null_char) - 1
+      f_time % offset = tmpChar(1:idx)
     endif
 
     ! set val type flag
