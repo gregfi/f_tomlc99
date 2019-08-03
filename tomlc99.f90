@@ -18,11 +18,14 @@ module tomlc99
     type(bufferType) :: buffer 
     type(c_ptr)      :: year, month, day
     type(c_ptr)      :: hour, minute, second
+    type(c_ptr)      :: z
   end type
 
   type :: toml_time
-    integer          :: year, month, day
-    integer          :: hour, minute, second
+    integer           :: year, month, day
+    integer           :: hour, minute, second
+    character(len=10) :: offset
+    character(len=1)  :: timeType
   end type
 
   interface
@@ -31,18 +34,21 @@ module tomlc99
 
     function c_fopen(fileName, mode) bind(C,name="fopen")
       import                 :: c_ptr, c_char
+      implicit none
       type(c_ptr)            :: c_fopen
       character(kind=c_char) :: fileName, mode
     end function
 
     function c_fclose(filePtr) bind(C,name="fclose")
       import                 :: c_ptr, c_int
+      implicit none
       type(c_ptr), value     :: filePtr
       integer(c_int)         :: c_fclose
     end function
 
     subroutine c_free(ptr) bind(C,name="free")
       import                 :: c_ptr
+      implicit none
       type(c_ptr), value     :: ptr
     end subroutine
 
@@ -51,6 +57,7 @@ module tomlc99
     function tomlc99_toml_parse_file(filePtr, errBuf, errBufSz) &
              bind(C,name="toml_parse_file")
       import                 :: c_ptr, c_char, c_int
+      implicit none
       type(c_ptr)            :: tomlc99_toml_parse_file
       type(c_ptr), value     :: filePtr
       character(kind=c_char) :: errBuf(*)
@@ -59,6 +66,7 @@ module tomlc99
 
     function tomlc99_toml_key_in(tblPtr, keyIdx) bind(C,name="toml_key_in")
       import                 :: c_ptr, c_int
+      implicit none
       type(c_ptr)            :: tomlc99_toml_key_in
       type(c_ptr), value     :: tblPtr
       integer(c_int), value  :: keyIdx
@@ -66,6 +74,7 @@ module tomlc99
 
     function tomlc99_toml_raw_in(dataPtr, keyName) bind(C,name="toml_raw_in")
       import                 :: c_ptr, c_char
+      implicit none
       type(c_ptr)            :: tomlc99_toml_raw_in
       type(c_ptr), value     :: dataPtr
       character(kind=c_char) :: keyName(*)
@@ -74,6 +83,7 @@ module tomlc99
     function tomlc99_toml_table_in(dataPtr, tableName) &
              bind(C,name="toml_table_in")
       import                 :: c_ptr, c_char
+      implicit none
       type(c_ptr)            :: tomlc99_toml_table_in
       type(c_ptr), value     :: dataPtr
       character(kind=c_char) :: tableName(*)
@@ -82,6 +92,7 @@ module tomlc99
     function tomlc99_toml_array_in(dataPtr, arrayName) &
              bind(C,name="toml_array_in")
       import                 :: c_ptr, c_char
+      implicit none
       type(c_ptr)            :: tomlc99_toml_array_in
       type(c_ptr), value     :: dataPtr
       character(kind=c_char) :: arrayName(*)
@@ -90,6 +101,7 @@ module tomlc99
     function tomlc99_toml_array_kind(arrPtr) &
              bind(C,name="toml_array_kind")
       import                 :: c_ptr, c_char
+      implicit none
       type(c_ptr), value     :: arrPtr
       character(kind=c_char) :: tomlc99_toml_array_kind
     end function 
@@ -97,6 +109,7 @@ module tomlc99
     function tomlc99_toml_array_type(arrPtr) &
              bind(C,name="toml_array_type")
       import                 :: c_ptr, c_char
+      implicit none
       type(c_ptr), value     :: arrPtr
       character(kind=c_char) :: tomlc99_toml_array_type
     end function 
@@ -104,6 +117,7 @@ module tomlc99
     function tomlc99_toml_array_nelem(arrPtr) &
              bind(C,name="toml_array_nelem")
       import                 :: c_ptr, c_int 
+      implicit none
       integer(c_int)         :: tomlc99_toml_array_nelem
       type(c_ptr), value     :: arrPtr
     end function 
@@ -111,6 +125,7 @@ module tomlc99
     function tomlc99_toml_raw_at(arrPtr, idx) &
              bind(C,name="toml_raw_at")
       import                 :: c_ptr, c_int 
+      implicit none
       type(c_ptr)            :: tomlc99_toml_raw_at
       type(c_ptr), value     :: arrPtr
       integer(c_int), value  :: idx
@@ -119,6 +134,7 @@ module tomlc99
     function tomlc99_toml_array_at(arrPtr, idx) &
              bind(C,name="toml_array_at")
       import                 :: c_ptr, c_int 
+      implicit none
       type(c_ptr)            :: tomlc99_toml_array_at
       type(c_ptr), value     :: arrPtr
       integer(c_int), value  :: idx
@@ -127,6 +143,7 @@ module tomlc99
     function tomlc99_toml_table_at(arrPtr, idx) &
              bind(C,name="toml_table_at")
       import                 :: c_ptr, c_int 
+      implicit none
       type(c_ptr)            :: tomlc99_toml_table_at
       type(c_ptr), value     :: arrPtr
       integer(c_int), value  :: idx
@@ -134,6 +151,7 @@ module tomlc99
 
     function tomlc99_toml_rtos(raw, outStr) bind(C,name="toml_rtos")
       import                 :: c_int, c_ptr, c_char
+      implicit none
       integer(c_int)         :: tomlc99_toml_rtos
       type(c_ptr), value     :: raw
       type(c_ptr)            :: outStr
@@ -141,6 +159,7 @@ module tomlc99
 
     function tomlc99_toml_rtoi(raw, outInt) bind(C,name="toml_rtoi")
       import                 :: c_ptr, c_int, c_int64_t
+      implicit none
       integer(c_int)         :: tomlc99_toml_rtoi
       type(c_ptr), value     :: raw
       integer(c_int64_t)     :: outInt
@@ -148,6 +167,7 @@ module tomlc99
 
     function tomlc99_toml_rtod(raw, outDbl) bind(C,name="toml_rtod")
       import                 :: c_ptr, c_int, c_double
+      implicit none
       integer(c_int)         :: tomlc99_toml_rtod
       type(c_ptr), value     :: raw
       real(c_double)         :: outDbl
@@ -155,6 +175,7 @@ module tomlc99
 
     function tomlc99_toml_rtob(raw, outBool) bind(C,name="toml_rtob")
       import                 :: c_ptr, c_int, c_bool
+      implicit none
       integer(c_int)         :: tomlc99_toml_rtob
       type(c_ptr), value     :: raw
       logical(c_bool)        :: outBool
@@ -162,11 +183,11 @@ module tomlc99
 
     function tomlc99_toml_rtots(raw, outTime) bind(C,name="toml_rtots")
       import                 :: c_ptr, c_int, timestampType
+      implicit none
       integer(c_int)         :: tomlc99_toml_rtots
       type(c_ptr), value     :: raw
       type(timestampType)    :: outTime
     end function 
-
 
   end interface
 
@@ -402,6 +423,55 @@ module tomlc99
     103 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
 
   end subroutine
+
+  subroutine toml_get_array_time(inArrPtr, outArray)
+
+    ! description: accepts a pointer to a "toml_array_t" data structure
+    !              structure and returns an type(toml_time) array. A fatal error
+    !              is issued if the parameters do not match
+
+    type(c_ptr),                   intent(in)  :: inArrPtr
+    type(toml_time), dimension(:), intent(out) :: outArray
+    
+    integer(c_int)                            :: c_nelem, c_idx, c_ierr
+    character(kind=c_char)                    :: c_kind, c_type
+    type(timestampType)                       :: c_outTime
+    type(c_ptr)                               :: tmpRaw
+    integer                                   :: idx
+    
+    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
+    c_kind      = tomlc99_toml_array_kind(inArrPtr)
+    c_type      = tomlc99_toml_array_type(inArrPtr)
+
+    if (c_nelem /= size(outArray)) then
+      write(stderr,101) c_nelem, size(outArray)
+      error stop
+    endif
+
+    if (c_kind /= 'v') then
+      write(stderr,102) c_kind, 'v'
+      error stop
+    endif
+
+    if (c_type /= 't' .and. c_type /= "D" .and. c_type /= "T") then
+      write(stderr,103) c_type, "t || T || D"
+      error stop
+    endif
+
+    do idx=1,c_nelem
+      c_idx  = idx - 1
+      tmpRaw = tomlc99_toml_raw_at(inArrPtr, c_idx)
+      c_ierr = tomlc99_toml_rtots(tmpRaw, c_outTime)
+      call toml_c_f_timestamp(c_outTime, outArray(idx))
+    enddo
+
+    101 format ('ERROR: the size of the toml array data (',i0,') does not ',&
+                'match the size of output array (',i0,').')
+    102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
+    103 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
+
+  end subroutine
+
 
   subroutine toml_get_array_bool(inArrPtr, outArray)
 
@@ -893,7 +963,6 @@ module tomlc99
     character                     :: valType
     integer(c_int)                :: c_ierr = 0
     type(timestampType)           :: c_outTime
-    integer, pointer              :: tmpInt
 
     outTime%year   = 0
     outTime%month  = 0
@@ -910,8 +979,8 @@ module tomlc99
     endif
 
     valType = toml_inquire_val_type(inTblPtr, trim(keyName) // c_null_char)
-    if (valType /= "t" .and. valType /= "T" .and. valType /= "d") then
-      write(stderr,102) trim(keyName), valType, "t || T || d"
+    if (valType /= "t" .and. valType /= "T" .and. valType /= "D") then
+      write(stderr,102) trim(keyName), valType, "t || T || D"
       error stop
     endif
 
@@ -922,23 +991,7 @@ module tomlc99
       error stop
     endif
 
-    call c_f_pointer(c_outTime%year,  tmpInt)
-    if (c_associated(c_outTime%year)) then
-      outTime % year  = tmpInt
-      call c_f_pointer(c_outTime%month, tmpInt)
-      outTime % month = tmpInt
-      call c_f_pointer(c_outTime%day,   tmpInt)
-      outTime % day   = tmpInt
-    endif
-
-    call c_f_pointer(c_outTime%hour,  tmpInt)
-    if (c_associated(c_outTime%hour)) then
-      outTime % hour  = tmpInt
-      call c_f_pointer(c_outTime%minute, tmpInt)
-      outTime % minute= tmpInt
-      call c_f_pointer(c_outTime%second, tmpInt)
-      outTime % second= tmpInt
-    endif
+    call toml_c_f_timestamp(c_outTime, outTime)
 
     101 format ('ERROR: Failed to find key: ',a)
     102 format ('ERROR: Key "',a,'" has type "',a,&
@@ -947,6 +1000,77 @@ module tomlc99
 
   end subroutine
 
+  subroutine toml_c_f_timestamp(c_time, f_time)
+
+    ! description: accepts a "toml_timestamp_t" data structure from the 
+    !              output of an "rtots" call and converts it to a Fortran
+    !              structure.
+
+    type(timestampType), intent(in)  :: c_time
+    type(toml_time),     intent(out) :: f_time
+
+    integer                          :: c_ierr
+    integer, pointer                 :: tmpInt
+    character(len=10), pointer       :: tmpChar
+
+    if (c_associated(c_time%year)) then
+      call c_f_pointer(c_time%year,  tmpInt)
+      f_time % year  = tmpInt
+      call c_f_pointer(c_time%month, tmpInt)
+      f_time % month = tmpInt
+      call c_f_pointer(c_time%day,   tmpInt)
+      f_time % day   = tmpInt
+    endif
+
+    if (c_associated(c_time%hour)) then
+      call c_f_pointer(c_time%hour,  tmpInt)
+      f_time % hour  = tmpInt
+      call c_f_pointer(c_time%minute, tmpInt)
+      f_time % minute= tmpInt
+      call c_f_pointer(c_time%second, tmpInt)
+      f_time % second= tmpInt
+    endif
+
+    if (c_associated(c_time%z)) then
+      call c_f_pointer(c_time%z,  tmpchar)
+      f_time % offset = tmpChar
+    endif
+
+    ! set val type flag
+    if (c_associated(c_time%year) .and. &
+        c_associated(c_time%hour)) then
+      f_time % timeType = "T"
+    elseif (c_associated(c_time%year)) then
+      f_time % timeType = "D"
+    elseif (c_associated(c_time%hour)) then
+      f_time % timeType = "t" 
+    endif
+
+  end subroutine
+
+  subroutine toml_timestamp_to_string(tsVal, outString)
+
+    type(toml_time),   intent(in)  :: tsVal
+    character(len=29), intent(out) :: outString
+    
+    if (tsVal % timeType == "T") then
+      write(outString,101) tsVal%year, tsVal%month,  tsVal%day, &
+                           tsVal%hour, tsVal%minute, tsVal%second, &
+                           adjustl(tsVal%offset)
+    else if (tsVal % timeType == "D") then
+      write(outString,102) tsVal%year, tsVal%month,  tsVal%day
+    else if (tsVal % timeType == "t") then
+      write(outString,103) tsVal%hour, tsVal%minute, tsVal%second
+    else
+      write(stderr,104) tsVal % timeType
+    endif
+
+    101 format (i4.4,'-',i2.2,'-',i2.2,'T',i2.2,':',i2.2,':',i2.2,a10)
+    102 format (i4.4,'-',i2.2,'-',i2.2)
+    103 format (i2.2,':',i2.2,':',i2.2)
+    104 format ('ERROR: Timestamp type "',a1,'" is unrecognized.')
+    
+  end subroutine
 
   function toml_get_keyLen_at_index(inTblPtr, keyIndex)
 
@@ -1096,7 +1220,7 @@ module tomlc99
           c_associated(c_outTime%hour)) then
         toml_inquire_val_type = "T"
       elseif (c_associated(c_outTime%year)) then
-        toml_inquire_val_type = "d"
+        toml_inquire_val_type = "D"
       elseif (c_associated(c_outTime%hour)) then
         toml_inquire_val_type = "t"
       endif

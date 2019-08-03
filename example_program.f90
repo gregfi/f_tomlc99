@@ -11,6 +11,8 @@ program example_program
   character(len=:), allocatable :: strVal
   logical                       :: boolVal
   character                     :: arrType, arrKind, keyType, valType
+  type(toml_time)               :: timeVal
+  character(len=29)             :: timeStr
   
   integer(int64), dimension(:), allocatable :: intArr
   real(real64),   dimension(:), allocatable :: dblArr, xArr, yArr, zArr
@@ -19,6 +21,7 @@ program example_program
                   dimension(:), allocatable :: strArr
 
   type(c_ptr),    dimension(:), allocatable :: tArr, aArr
+  type(toml_time),dimension(:), allocatable :: dateAr  
 
   filePtr = toml_parse_file("example_data.toml")
 
@@ -49,6 +52,11 @@ program example_program
   call toml_get_val_bool(tblPtr, "enabled", boolVal)
   write(stdout,'(3a,l)') "'enabled' type=", valType, "; value=", boolVal
 
+  valType= toml_inquire_val_type(tblPtr, "ldt1")
+  call toml_get_val_ts(tblPtr, "ldt1", timeVal)
+  call toml_timestamp_to_string(timeVal, timeStr)
+  write(stdout,'(4a)') "'ldt1' type=", valType, "; value=",trim(timeStr)
+
   write(stdout,'(/a)') "name    kind  type #elem"
   arrPtr   = toml_array_in(tblPtr, "intArray")
   arrKind  = toml_array_kind(arrPtr) 
@@ -74,6 +82,14 @@ program example_program
   allocate(boolAr(arrNelem)); boolAr = .false.
   call toml_get_array_bool(arrPtr, boolAr)
 
+  arrPtr   = toml_array_in(tblPtr, "dateArray")
+  arrKind  = toml_array_kind(arrPtr) 
+  arrType  = toml_array_type(arrPtr) 
+  arrNelem = toml_array_nelem(arrPtr) 
+  write(stdout, '(a9,a3,a6,i6)') "dateArray", arrKind, arrType, arrNelem
+  allocate(dateAr(arrNelem))
+  call toml_get_array_time(arrPtr, dateAr)
+
   arrPtr   = toml_array_in(tblPtr, "strArray")
   arrKind  = toml_array_kind(arrPtr) 
   arrType  = toml_array_type(arrPtr) 
@@ -84,9 +100,17 @@ program example_program
   call toml_get_array_str(arrPtr, strArr)
 
   write(stdout, '()')
-  write(stdout, '(a,5(i4))') "inArray: ", intArr
+  write(stdout, '(a,5(i4))') "intArray: ", intArr
   write(stdout, '(a,5(f6.1))') "dblArray: ", dblArr
   write(stdout, '(a,5(l2))') "boolArray: ", boolAr
+
+  write(stdout, '(a)', advance="no") "dateArray: "
+  do idx=1,size(dateAr)
+    call toml_timestamp_to_string(dateAr(idx), timeStr)
+    write(stdout, '(a,1x)', advance="no") trim(timeStr)
+  enddo 
+  write(stdout, '()')
+
   write(stdout, '(a,5a8)') "strArray: ", strArr
 
   write(stdout, '()')
