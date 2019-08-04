@@ -5,7 +5,8 @@ program example_program
   implicit none 
 
   type(c_ptr)                   :: filePtr, tblPtr, arrPtr
-  integer                       :: strLen, arrNelem, idx
+  integer(int32)                :: nkval, narr, ntab
+  integer(int32)                :: strLen, arrNelem, idx
   integer(int64)                :: intVal
   double precision              :: dblVal, xVal, yVal, zVal
   character(len=:), allocatable :: strVal
@@ -32,6 +33,11 @@ program example_program
   write(stdout,'(a,a)') "first key string value: ", strVal
 
   tblPtr = toml_table_in(filePtr, "server")
+
+  narr = toml_table_narr(tblPtr)
+  ntab = toml_table_ntab(tblPtr)
+  nkval= toml_table_nkval(tblPtr)
+  write(stdout,'(/"nkval=",i0,"; narr=",i0,"; ntab=",i0)') nkval, narr, ntab
 
   strLen = toml_get_val_strlen(tblPtr, "host")
   valType= toml_inquire_val_type(tblPtr, "host")
@@ -153,5 +159,7 @@ program example_program
   call toml_get_array_dbl(aArr(3), zArr)
   write(stdout, '((4x,3(f6.1)))') (xArr(idx), yArr(idx), zArr(idx), &
                                   idx=1,toml_array_nelem(arrPtr))
+
+  call toml_free(filePtr)
 
 end program

@@ -1,5 +1,5 @@
 # f_tomlc99
-Fortran interface for cktan's [tomlc99](https://github.com/cktan/tomlc99) library. The interface seems to work, but hasn't been tested extensively, so please use caution. Suggestions and fixes are welcome. 
+Fortran interface to [TOML](https://github.com/toml-lang/toml) through cktan's [tomlc99](https://github.com/cktan/tomlc99) library. The interface hasn't been tested extensively, so please use caution. Suggestions and fixes are welcome. 
 
 See the `example_program.f90` file for the available facilities. Note that utf8 support has not yet been implemented. The example can be compiled with:
 
@@ -11,7 +11,9 @@ The example code produces the following output on my machine:
 first key string length: 5
 first key string value: title
 
-'host' type=s; length=15; value=www.example.com
+nkval=5; narr=7; ntab=0
+
+'host' type=s; length=22; value=www.example.com ʎǝʞ
 'port' type=i; value=80
 'uptime' type=d; value=123.4
 'enabled' type=b; value=T

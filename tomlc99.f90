@@ -52,7 +52,7 @@ module tomlc99
       type(c_ptr), value     :: ptr
     end subroutine
 
-    ! interfaces to standard tomlc99 functions
+    ! interfaces to tomlc99 functions
 
     function tomlc99_toml_parse_file(filePtr, errBuf, errBufSz) &
              bind(C,name="toml_parse_file")
@@ -63,6 +63,12 @@ module tomlc99
       character(kind=c_char) :: errBuf(*)
       integer(c_int)         :: errBufSz 
     end function 
+
+    subroutine tomlc99_toml_free(tblPtr) bind(C,name="toml_free")
+      import                 :: c_ptr
+      implicit none
+      type(c_ptr), value     :: tblPtr
+    end subroutine
 
     function tomlc99_toml_key_in(tblPtr, keyIdx) bind(C,name="toml_key_in")
       import                 :: c_ptr, c_int
@@ -87,6 +93,30 @@ module tomlc99
       type(c_ptr)            :: tomlc99_toml_table_in
       type(c_ptr), value     :: dataPtr
       character(kind=c_char) :: tableName(*)
+    end function 
+
+    function tomlc99_toml_table_nkval(tblPtr) &
+             bind(C,name="toml_table_nkval")
+      import                 :: c_ptr, c_int
+      implicit none
+      type(c_ptr), value     :: tblPtr
+      integer(c_int)         :: tomlc99_toml_table_nkval
+    end function 
+
+    function tomlc99_toml_table_narr(tblPtr) &
+             bind(C,name="toml_table_narr")
+      import                 :: c_ptr, c_int
+      implicit none
+      type(c_ptr), value     :: tblPtr
+      integer(c_int)         :: tomlc99_toml_table_narr
+    end function 
+
+    function tomlc99_toml_table_ntab(tblPtr) &
+             bind(C,name="toml_table_ntab")
+      import                 :: c_ptr, c_int
+      implicit none
+      type(c_ptr), value     :: tblPtr
+      integer(c_int)         :: tomlc99_toml_table_ntab
     end function 
 
     function tomlc99_toml_array_in(dataPtr, arrayName) &
@@ -246,6 +276,16 @@ module tomlc99
 
   end subroutine
 
+  subroutine toml_free(inTblPtr)
+
+    ! description: free the memory associated with the root-level "toml_table_t"
+    !              data structure 
+
+    type(c_ptr), intent(in) :: inTblPtr
+    call tomlc99_toml_free(inTblPtr)
+
+  end subroutine
+
   function toml_table_in(inTblPtr, tblName)
 
     ! description: returns a c pointer to the table with name "tblName" 
@@ -258,6 +298,51 @@ module tomlc99
 
     toml_table_in = tomlc99_toml_table_in(inTblPtr, &
                                           tblName // c_null_char)
+
+  end function
+
+  function toml_table_nkval(inTblPtr)
+
+    ! description: returns the integer number of key-value pairs in the 
+    !              "toml_table_t" structure referenced by "inTblPtr". 
+
+    integer(int32)                :: toml_table_nkval
+    type(c_ptr), intent(in)       :: inTblPtr
+
+    integer(c_int)                :: c_outVal         
+
+    c_outVal = tomlc99_toml_table_nkval(inTblPtr)
+    toml_table_nkval = c_outVal
+
+  end function
+
+  function toml_table_narr(inTblPtr)
+
+    ! description: returns the integer number of arrays in the 
+    !              "toml_table_t" structure referenced by "inTblPtr". 
+
+    integer(int32)                :: toml_table_narr 
+    type(c_ptr), intent(in)       :: inTblPtr
+
+    integer(c_int)                :: c_outVal         
+
+    c_outVal = tomlc99_toml_table_narr(inTblPtr)
+    toml_table_narr = c_outVal
+
+  end function
+
+  function toml_table_ntab(inTblPtr)
+
+    ! description: returns the integer number of sub-tables in the
+    !              "toml_table_t" structure referenced by "inTblPtr". 
+
+    integer(int32)                :: toml_table_ntab 
+    type(c_ptr), intent(in)       :: inTblPtr
+
+    integer(c_int)                :: c_outVal         
+
+    c_outVal = tomlc99_toml_table_ntab(inTblPtr)
+    toml_table_ntab = c_outVal
 
   end function
 
