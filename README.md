@@ -1,9 +1,9 @@
 # f_tomlc99
 Fortran interface to [TOML](https://github.com/toml-lang/toml) through cktan's [tomlc99](https://github.com/cktan/tomlc99) library. The interface hasn't been tested extensively, so please use caution. Suggestions and fixes are welcome. 
 
-See the `example_program.f90` file for the available facilities. Note that utf8 support has not yet been implemented. The example can be compiled with:
+See the `example_program.f90` file for the available facilities. Note that interfaces to the ucs/utf8 functions have not been written yet. Also missing are the functions that retrieve key names for arrays and tables. The example can be compiled with:
 
-`$FC tomlc99.f90 example_program.f90 /path/to/libtoml.a`
+`$FC tomlc99.f90 example_program.f90 /path/to/tomlc99/libtoml.a`
 
 The example code produces the following output on my machine:
 
@@ -13,7 +13,7 @@ first key string value: title
 
 nkval=5; narr=7; ntab=0
 
-'host' type=s; length=22; value=www.example.com ʎǝʞ
+'host' type=s; length=33; value=www.example.com_ǝnlɐʌ‾ǝɯos
 'port' type=i; value=80
 'uptime' type=d; value=123.4
 'enabled' type=b; value=T

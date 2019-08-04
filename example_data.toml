@@ -4,7 +4,7 @@ title = "TOML Simple Example"
 
 [server]
 
-        host = "www.example.com ʎǝʞ"
+        host = "www.example.com_ǝnlɐʌ‾ǝɯos"
         port = 80
       uptime = 123.4
      enabled = true
