@@ -6,6 +6,8 @@ module tomlc99
 
   implicit none 
 
+  integer, parameter :: ck = selected_char_kind('ISO_10646')
+
   integer(int32), parameter :: maxStrLen = 262144
 
   type, bind(c) :: bufferType
@@ -217,6 +219,16 @@ module tomlc99
       integer(c_int)         :: tomlc99_toml_rtots
       type(c_ptr), value     :: raw
       type(timestampType)    :: outTime
+    end function 
+
+    function tomlc99_toml_utf8_to_ucs(orig, length, outVal) &
+             bind(C,name="toml_utf8_to_ucs")
+      import                 :: c_ptr, c_int, c_int64_t
+      implicit none
+      integer(c_int)         :: tomlc99_toml_utf8_to_ucs
+      type(c_ptr), value     :: orig
+      integer(c_int), value  :: length
+      integer(c_int64_t)     :: outVal
     end function 
 
   end interface
@@ -1136,6 +1148,8 @@ module tomlc99
 
   subroutine toml_timestamp_to_string(tsVal, outString)
 
+    ! description: writes a toml_time structure to a string
+
     type(toml_time),   intent(in)  :: tsVal
     character(len=29), intent(out) :: outString
     
@@ -1149,6 +1163,7 @@ module tomlc99
       write(outString,103) tsVal%hour, tsVal%minute, tsVal%second
     else
       write(stderr,104) tsVal % timeType
+      error stop
     endif
 
     101 format (i4.4,'-',i2.2,'-',i2.2,'T',i2.2,':',i2.2,':',i2.2,a10)
@@ -1252,9 +1267,8 @@ module tomlc99
 
     ! description: accepts a pointer to a "toml_table_t" data structure
     !              and an key name for a value kind; returns 's' for string, 
-    !              'i' for int, 'b' for bool, 'd' for double, or c_null_char 
-    !              for key-not-found. Timestamp data yields a fatal error 
-    !              (for now), as it has not been implemented
+    !              'i' for int, 'b' for bool, 'd' for double, 'T' for date-time,
+    !              'D' for date, 't' for time, or c_null_char for key-not-found. 
 
     character                    :: toml_inquire_val_type
     type(c_ptr),      intent(in) :: inTblPtr
