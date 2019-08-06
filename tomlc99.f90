@@ -6,7 +6,7 @@ module tomlc99
 
   implicit none 
 
-  integer, parameter :: ck = selected_char_kind('ISO_10646')
+  integer, parameter :: ucs4 = selected_char_kind('ISO_10646')
 
   integer(int32), parameter :: maxStrLen = 262144
 
@@ -223,12 +223,21 @@ module tomlc99
 
     function tomlc99_toml_utf8_to_ucs(orig, length, outVal) &
              bind(C,name="toml_utf8_to_ucs")
-      import                 :: c_ptr, c_int, c_int64_t
+      import                 :: c_char, c_int, c_int64_t
       implicit none
       integer(c_int)         :: tomlc99_toml_utf8_to_ucs
-      type(c_ptr), value     :: orig
+      character(kind=c_char) :: orig(*)
       integer(c_int), value  :: length
       integer(c_int64_t)     :: outVal
+    end function 
+
+    function tomlc99_toml_ucs_to_utf8(codeVal, buffer) &
+             bind(C,name="toml_ucs_to_utf8")
+      import                    :: c_char, c_int, c_int64_t
+      implicit none
+      integer(c_int)            :: tomlc99_toml_ucs_to_utf8
+      integer(c_int64_t), value :: codeVal
+      character(kind=c_char)    :: buffer(6)
     end function 
 
   end interface
@@ -721,7 +730,6 @@ module tomlc99
       c_ierr = tomlc99_toml_rtos(tmpRaw, c_outStr)
 
       call c_f_pointer(c_outStr, fstring)
-      tmpStrLen = index(fstring, c_null_char)-1
       outArray(idx) = fstring(1:tmpStrLen)
 
       call c_free(c_outStr)
@@ -833,6 +841,7 @@ module tomlc99
     type(c_ptr)                   :: c_outStr
 
     character(len=maxStrLen), pointer :: fstring
+    integer :: ucsLen
 
     tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
 
@@ -850,7 +859,8 @@ module tomlc99
     c_ierr = tomlc99_toml_rtos(tmpRaw, c_outStr)
 
     call c_f_pointer(c_outStr, fstring)
-    toml_get_val_strlen =  index(fstring, c_null_char)-1
+    toml_get_val_strlen = index(fstring, c_null_char)-1
+
     call c_free(c_outStr)
 
     101 format ('ERROR: Failed to find key: ',a)
@@ -1332,5 +1342,186 @@ module tomlc99
     error stop
 
   end function
+
+  function toml_utf8_decode_strlen(inStr)
+
+    ! description: accepts a string that is encoded with UTF-8 and returns the 
+    !              number of unicode (UCS-4) values contained in the string. 
+
+    integer                      :: toml_utf8_decode_strlen
+    character(len=*), intent(in) :: inStr
+    
+    integer                           :: strEnd, fIdx
+    integer(c_int)                    :: bytes
+    integer(c_int64_t)                :: ucsInt
+
+    toml_utf8_decode_strlen = 0
+
+    fIdx   = 1
+    do while (fIdx <= len(inStr))
+
+      strEnd = min(fIdx+5,len(inStr))
+      bytes  = tomlc99_toml_utf8_to_ucs(inStr(fIdx:strEnd) // c_null_char,&
+                                        strEnd-fIdx+1,ucsInt)
+
+      if (bytes /= -1) then
+        fIdx = fIdx + bytes
+        toml_utf8_decode_strlen = toml_utf8_decode_strlen + 1
+      else 
+        write(stderr,'(a)') &
+           "ERROR: UTF-8 decoding failed (bytes == -1; toml_utf8_decode_strlen)"
+        error stop
+      endif
+
+    enddo
+
+    if (fIdx /= len(inStr)+1) then
+      write(stderr,'(a)') &
+        "ERROR: UTF-8 decoding failed (fIdx /= len(inStr)+1); " & 
+        // "(toml_utf8_decode_strlen)"
+      error stop
+    endif
+
+  end function
+
+  subroutine toml_utf8_decode_str(inStr, outStr)
+
+    ! description: accepts a string that is encoded with UTF-8 and returns a
+    !              decoded character string of kind ISO_10646 (UCS-4).
+
+    character(len=*), intent(in) :: inStr
+    character(len=*, kind=ucs4), &
+                    intent(out)  :: outStr
+
+    integer                           :: expLen, fIdx, uIdx, strEnd
+    integer(c_int)                    :: bytes
+    integer(c_int64_t)                :: ucsInt
+
+    expLen = toml_utf8_decode_strlen(inStr)
+
+    if (expLen /= len(outStr)) then
+      write(stderr, '(a)') &
+        "ERROR: UCS-4 output string length does not match expectations " &
+        // "(toml_utf8_decode_str)"
+      error stop
+    endif
+
+    fIdx   = 1
+    uIdx   = 1
+    do while (fIdx <= len(inStr))
+
+      strEnd = min(fIdx+5,len(inStr))
+      bytes = tomlc99_toml_utf8_to_ucs(inStr(fIdx:strEnd), &
+                                       strEnd-fIdx+1,ucsInt)
+
+      if (bytes /= -1) then
+        outStr(uIdx:uIdx) = char(ucsInt, kind=ucs4)
+        fIdx = fIdx + bytes
+        uIdx = uIdx + 1
+      else 
+        write(stderr,'(a)') &
+           "ERROR: UTF-8 decoding failed (bytes == -1; toml_utf8_decode_str)"
+        error stop
+      endif
+      
+    enddo
+
+    if (fIdx /= len(inStr)+1) then
+      write(stderr,'(a)') &
+        "ERROR: UTF-8 decoding failed (fIdx /= len(inStr)+1); " & 
+        // "toml_utf8_decode_str)"
+      error stop
+    endif
+
+  end subroutine
+
+  function toml_utf8_encode_strlen(inStr)
+
+    ! description: accepts a character string of kind ISO_10646 (UCS-4) and
+    !              returns the string length of default kind for the UTF-8-
+    !              encoded rendition of the input string
+
+    integer                      :: toml_utf8_encode_strlen
+    character(len=*,kind=ucs4), &
+                      intent(in) :: inStr
+    
+    integer                           :: strEnd, uIdx
+    integer(int64)                    :: tmpInt
+    integer(c_int)                    :: bytes
+    integer(c_int64_t)                :: ucsInt
+    character(c_char)                 :: buffer(6)
+
+    toml_utf8_encode_strlen = 0
+
+    do uIdx=1,len(inStr)
+
+      ucsInt = ichar(inStr(uIdx:uIdx), int64)
+      bytes  = tomlc99_toml_ucs_to_utf8(ucsInt, buffer)
+
+      if (bytes /= -1) then
+        toml_utf8_encode_strlen = toml_utf8_encode_strlen + bytes
+      else 
+        write(stderr,'(a)') &
+           "ERROR: UTF-8 encoding failed (bytes == -1; toml_utf8_encode_strlen)"
+        error stop
+      endif
+
+    enddo
+
+  end function
+
+  subroutine toml_utf8_encode_str(inStr, outStr)
+
+    ! description: accepts a character string of kind ISO_10646 (UCS-4) and
+    !              returns a string that is encoded with UTF-8.
+
+    character(len=*, kind=ucs4), &
+                    intent(in)    :: inStr
+    character(len=*), intent(out) :: outStr
+
+    integer                           :: expLen, fIdx, uIdx, bIdx 
+    integer(c_int)                    :: bytes
+    integer(c_int64_t)                :: ucsInt
+    character(c_char)                 :: buffer(6)
+
+    expLen = toml_utf8_encode_strlen(inStr)
+
+    if (expLen /= len(outStr)) then
+      write(stderr, '(a)') &
+        "ERROR: UTF-8 output string length does not match expectations " &
+        // "(toml_utf8_encode_str)"
+      error stop
+    endif
+
+    fIdx = 1
+    do uIdx=1,len(inStr)
+
+      ucsInt = ichar(inStr(uIdx:uIdx), int64)
+      bytes  = tomlc99_toml_ucs_to_utf8(ucsInt, buffer)
+
+      if (bytes /= -1) then
+        do bIdx=1,bytes
+          outStr((fidx+bIdx-1):(fidx+bIdx-1)) = buffer(bIdx)
+        enddo
+        fidx = fidx + bytes
+      else 
+        write(stderr,'(a)') &
+           "ERROR: UTF-8 encoding failed (bytes == -1; toml_utf8_encode_str)"
+        error stop
+      endif
+
+    enddo
+
+    if (fIdx /= len(outStr)+1) then
+      write(stderr,'(a)') &
+        "ERROR: UTF-8 encoding failed (fIdx /= len(outStr)+1); " & 
+        // "toml_utf8_encode_str)"
+      write(stderr,*) "FIDX",fIdx,len(inStr)+1
+      error stop
+    endif
+
+  end subroutine
+
+
 
 end module

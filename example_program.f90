@@ -9,7 +9,9 @@ program example_program
   integer(int32)                :: strLen, arrNelem, idx
   integer(int64)                :: intVal
   double precision              :: dblVal, xVal, yVal, zVal
-  character(len=:), allocatable :: strVal
+  character(len=:), allocatable :: strVal, keyStr
+  character(len=:, kind=ucs4), &
+                    allocatable :: ucsStr
   logical                       :: boolVal
   character                     :: arrType, arrKind, keyType, valType
   type(toml_time)               :: timeVal
@@ -24,21 +26,27 @@ program example_program
   type(c_ptr),    dimension(:), allocatable :: tArr, aArr
   type(toml_time),dimension(:), allocatable :: dateAr  
 
+  ! set encoding; parse the file
+  open(stdout,encoding='UTF-8')
   filePtr = toml_parse_file("example_data.toml")
 
+  ! retrieve the first key name and print it 
   strLen = toml_get_keyLen_at_index(filePtr, 0)
   write(stdout,'(a,i0)') "first key string length: ", strLen
   allocate(character(strLen) :: strVal)
   call toml_get_keyName_at_index(filePtr,0,strVal)
   write(stdout,'(a,a)') "first key string value: ", strVal
 
+  ! parse the "server" table; print number of constituent vals, arrays, tables
   tblPtr = toml_table_in(filePtr, "server")
-
   narr = toml_table_narr(tblPtr)
   ntab = toml_table_ntab(tblPtr)
   nkval= toml_table_nkval(tblPtr)
   write(stdout,'(/"nkval=",i0,"; narr=",i0,"; ntab=",i0)') nkval, narr, ntab
 
+  ! retrieve and print the "host" key (string); note that the "special"
+  ! characters at the end print correctly, but would need to be decoded from
+  ! UTF-8 to UCS to be operated upon
   strLen = toml_get_val_strlen(tblPtr, "host")
   valType= toml_inquire_val_type(tblPtr, "host")
   deallocate(strVal); allocate(character(strLen) :: strVal)
@@ -46,24 +54,55 @@ program example_program
   write(stdout,'(/a,a,a,i0,a,a)') "'host' type=",valType, &
           "; length=", strLen, "; value=", strVal
 
+  ! retrieve and print the "port" key (int64)
   valType= toml_inquire_val_type(tblPtr, "port")
   call toml_get_val_int(tblPtr, "port", intVal)
   write(stdout,'(3a,i0)') "'port' type=", valType, "; value=", intVal
 
+  ! retrieve and print the "uptime" key (real64)
   valType= toml_inquire_val_type(tblPtr, "uptime")
   call toml_get_val_dbl(tblPtr, "uptime", dblVal)
   write(stdout,'(3a,f0.1)') "'uptime' type=", valType, "; value=", dblVal
 
+  ! retrieve and print the "enabled" key (logical)
   valType= toml_inquire_val_type(tblPtr, "enabled")
   call toml_get_val_bool(tblPtr, "enabled", boolVal)
   write(stdout,'(3a,l)') "'enabled' type=", valType, "; value=", boolVal
 
+  ! retrieve and print the "ldt1" key (toml_time)
   valType= toml_inquire_val_type(tblPtr, "ldt1")
   call toml_get_val_ts(tblPtr, "ldt1", timeVal)
   call toml_timestamp_to_string(timeVal, timeStr)
   write(stdout,'(4a)') "'ldt1' type=", valType, "; value=",trim(timeStr)
 
+  ! convert the "key" string (google translated from Korean) into UTF-8
+  strLen = toml_utf8_encode_strlen(char(int(z'D0A4'), ucs4)) 
+  allocate(character(strLen) :: keyStr)
+  call toml_utf8_encode_str(char(int(z'D0A4'), ucs4), keyStr)
+
+  ! retrieve the value using the UTF-8-encoded keyStr
+  strLen = toml_get_val_strlen(tblPtr, keyStr)
+  valType= toml_inquire_val_type(tblPtr, keyStr)
+  deallocate(strVal); allocate(character(strLen) :: strVal)
+  call toml_get_val_str(tblPtr, keyStr, strVal)
+
+  ! decode the UTF-8 into UCS
+  strLen = toml_utf8_decode_strlen(strVal)
+  allocate(character(strLen, kind=ucs4) :: ucsStr)
+  call toml_utf8_decode_str(strVal, ucsStr)
+
+  ! write the summary of Korean-language key and value extraction
+  write(stdout,'(5a,i0,3a,i0)') "'",char(int(z'D0A4'), ucs4),&
+                              "' type=",valType, &
+                              "; length=", strLen, &
+                              "; raw_value=", strVal, &
+                              "; unicode_int=", ichar(ucsStr(1:1),int64)
+
+
+  ! write column headers for array data
   write(stdout,'(/a)') "name    kind  type #elem"
+
+  ! retrieve integer array parameters and values
   arrPtr   = toml_array_in(tblPtr, "intArray")
   arrKind  = toml_array_kind(arrPtr) 
   arrType  = toml_array_type(arrPtr) 
@@ -72,6 +111,7 @@ program example_program
   allocate(intArr(arrNelem)); intArr = 0
   call toml_get_array_int(arrPtr, intArr)
 
+  ! retrieve double array parameters and values
   arrPtr   = toml_array_in(tblPtr, "dblArray")
   arrKind  = toml_array_kind(arrPtr) 
   arrType  = toml_array_type(arrPtr) 
@@ -80,6 +120,7 @@ program example_program
   allocate(dblArr(arrNelem)); dblArr = 0
   call toml_get_array_dbl(arrPtr, dblArr)
   
+  ! retrieve logical array parameters and values
   arrPtr   = toml_array_in(tblPtr, "boolArray")
   arrKind  = toml_array_kind(arrPtr) 
   arrType  = toml_array_type(arrPtr) 
@@ -88,6 +129,7 @@ program example_program
   allocate(boolAr(arrNelem)); boolAr = .false.
   call toml_get_array_bool(arrPtr, boolAr)
 
+  ! retrieve toml_time array parameters and values
   arrPtr   = toml_array_in(tblPtr, "dateArray")
   arrKind  = toml_array_kind(arrPtr) 
   arrType  = toml_array_type(arrPtr) 
@@ -96,6 +138,7 @@ program example_program
   allocate(dateAr(arrNelem))
   call toml_get_array_time(arrPtr, dateAr)
 
+  ! retrieve string array parameters and values
   arrPtr   = toml_array_in(tblPtr, "strArray")
   arrKind  = toml_array_kind(arrPtr) 
   arrType  = toml_array_type(arrPtr) 
@@ -105,6 +148,7 @@ program example_program
   allocate(character(strLen) :: strArr(arrNelem))
   call toml_get_array_str(arrPtr, strArr)
 
+  ! print array values
   write(stdout, '()')
   write(stdout, '(a,5(i4))') "intArray: ", intArr
   write(stdout, '(a,5(f6.1))') "dblArray: ", dblArr
@@ -119,6 +163,7 @@ program example_program
 
   write(stdout, '(a,5a8)') "strArray: ", strArr
 
+  ! print key kinds
   write(stdout, '()')
   write(stdout, '(2a)') "'port' kind: ", toml_inquire_key_kind(tblPtr, "port")
   write(stdout, '(2a)') "'boolArray' kind: ", toml_inquire_key_kind(tblPtr, "boolArray")
@@ -130,6 +175,7 @@ program example_program
     write(stdout, '(2a)') "'notpresent' kind: ", keyType
   endif
 
+  ! 
   arrPtr   = toml_array_in(tblPtr, "points")
   arrKind  = toml_array_kind(arrPtr) 
   arrNelem = toml_array_nelem(arrPtr) 
