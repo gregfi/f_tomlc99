@@ -1522,6 +1522,18 @@ module tomlc99
 
   end subroutine
 
+  function toml_inquire_string_is_ascii(inStr)
 
+    ! description: accepts a string that is encoded with UTF-8 and returns a
+    !              logical indicating whether the string is plain ascii
+
+    logical                      :: toml_inquire_string_is_ascii
+    character(len=*), intent(in) :: inStr
+
+    toml_inquire_string_is_ascii = .true.
+    if (len(inStr) /= toml_utf8_decode_strlen(inStr)) &
+      toml_inquire_string_is_ascii = .false.
+
+  end function
 
 end module

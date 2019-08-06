@@ -98,6 +98,11 @@ program example_program
                               "; raw_value=", strVal, &
                               "; unicode_int=", ichar(ucsStr(1:1),int64)
 
+  ! test whether strings are ascii or not
+  write(stdout,'(/a,l)') "'host' is ascii: ", &
+          toml_inquire_string_is_ascii("host")
+  write(stdout,'(a,l)') "'" // keyStr // "' is ascii: ", &
+          toml_inquire_string_is_ascii(keyStr)
 
   ! write column headers for array data
   write(stdout,'(/a)') "name    kind  type #elem"
