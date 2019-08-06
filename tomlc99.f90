@@ -730,6 +730,7 @@ module tomlc99
       c_ierr = tomlc99_toml_rtos(tmpRaw, c_outStr)
 
       call c_f_pointer(c_outStr, fstring)
+      tmpStrLen = index(fstring, c_null_char)-1
       outArray(idx) = fstring(1:tmpStrLen)
 
       call c_free(c_outStr)

@@ -28,13 +28,14 @@ intArray   v     i     5
 dblArray   v     d     5
 boolArray  v     b     5
 dateArray  v     D     5
-strArray   v     s     5
+strArray   v     s     5     6
+strArray:   str1    str2    str3    str4    str__5
 
 intArray:    1   2   3   4   5
 dblArray:    1.0   2.0   3.0   4.0   5.0
 boolArray:  T F T F T
 dateArray: 2019-01-01 2019-01-02 2019-01-03 2019-01-04 2019-01-05 
-strArray:                                         
+strArray:   str1    str2    str3    str4    str__5
 
 'port' kind: v
 'boolArray' kind: a
