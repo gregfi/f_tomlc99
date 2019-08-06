@@ -20,6 +20,9 @@ nkval=6; narr=7; ntab=0
 'ldt1' type=T; value=1979-05-27T07:32:00-05:00
 '키' type=s; length=1; raw_value=값; unicode_int=44050
 
+'host' is ascii: T
+'키' is ascii: F
+
 name    kind  type #elem
 intArray   v     i     5
 dblArray   v     d     5
