@@ -180,7 +180,7 @@ program example_program
     write(stdout, '(2a)') "'notpresent' kind: ", keyType
   endif
 
-  ! 
+  ! retrieve and print array-of-tables
   arrPtr   = toml_array_in(tblPtr, "points")
   arrKind  = toml_array_kind(arrPtr) 
   arrNelem = toml_array_nelem(arrPtr) 
@@ -195,6 +195,7 @@ program example_program
     write(stdout, '(4x,3(f6.1))') xVal, yVal, zVal
   enddo
 
+  ! retrieve and print array-of-arrays
   arrPtr   = toml_array_in(tblPtr, "alt_points")
   arrKind  = toml_array_kind(arrPtr) 
   arrNelem = toml_array_nelem(arrPtr) 
