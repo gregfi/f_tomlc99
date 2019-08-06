@@ -28,8 +28,7 @@ intArray   v     i     5
 dblArray   v     d     5
 boolArray  v     b     5
 dateArray  v     D     5
-strArray   v     s     5     6
-strArray:   str1    str2    str3    str4    str__5
+strArray   v     s     5
 
 intArray:    1   2   3   4   5
 dblArray:    1.0   2.0   3.0   4.0   5.0
