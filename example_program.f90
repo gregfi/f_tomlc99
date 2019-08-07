@@ -15,7 +15,7 @@ program example_program
   logical                       :: boolVal
   character                     :: arrType, arrKind, keyType, valType
   type(toml_time)               :: timeVal
-  character(len=29)             :: timeStr
+  character(len=:), allocatable :: timeStr
   
   integer(int64), dimension(:), allocatable :: intArr
   real(real64),   dimension(:), allocatable :: dblArr, xArr, yArr, zArr
@@ -31,14 +31,17 @@ program example_program
   filePtr = toml_parse_file("example_data.toml")
 
   ! retrieve the first key name and print it 
-  strLen = toml_get_key_at_index_strlen(filePtr, 0)
-  write(stdout,'(a,i0)') "first key string length: ", strLen
-  allocate(character(strLen) :: strVal)
-  call toml_get_key_at_index(filePtr,0,strVal)
-  write(stdout,'(a,a)') "first key string value: ", strVal
+  call toml_get_key_at_index(filePtr,0,keyStr)
+  write(stdout,'(a,i0)') "first key string length: ", len(keyStr)
+  write(stdout,'(a,a)') "first key string value: ", keyStr
 
-  ! parse the "server" table; print number of constituent vals, arrays, tables
+  ! parse the "server" table; retrieve the first key name and print it 
   tblPtr = toml_table_in(filePtr, "server")
+  call toml_array_key(tblPtr,keyStr)
+  write(stdout,'(/a,i0)') "table key string length: ", len(keyStr)
+  write(stdout,'(a,a)') "table key string value: ", keyStr
+
+  ! print number of constituent vals, arrays, tables
   narr = toml_table_narr(tblPtr)
   ntab = toml_table_ntab(tblPtr)
   nkval= toml_table_nkval(tblPtr)
@@ -47,12 +50,10 @@ program example_program
   ! retrieve and print the "host" key (string); note that the "special"
   ! characters at the end print correctly, but would need to be decoded from
   ! UTF-8 to UCS to be operated upon
-  strLen = toml_get_val_strlen(tblPtr, "host")
-  valType= toml_inquire_val_type(tblPtr, "host")
-  deallocate(strVal); allocate(character(strLen) :: strVal)
+  valType=toml_inquire_val_type(tblPtr, "host")
   call toml_get_val_str(tblPtr, "host", strVal)
   write(stdout,'(/a,a,a,i0,a,a)') "'host' type=",valType, &
-          "; length=", strLen, "; value=", strVal
+          "; length=", len(strVal), "; value=", strVal
 
   ! retrieve and print the "port" key (int64)
   valType= toml_inquire_val_type(tblPtr, "port")
@@ -73,28 +74,22 @@ program example_program
   valType= toml_inquire_val_type(tblPtr, "ldt1")
   call toml_get_val_ts(tblPtr, "ldt1", timeVal)
   call toml_timestamp_to_string(timeVal, timeStr)
-  write(stdout,'(4a)') "'ldt1' type=", valType, "; value=",trim(timeStr)
+  write(stdout,'(4a)') "'ldt1' type=", valType, "; value=",timeStr
 
   ! convert the "key" string (google translated from Korean) into UTF-8
-  strLen = toml_utf8_encode_strlen(char(int(z'D0A4'), ucs4)) 
-  allocate(character(strLen) :: keyStr)
   call toml_utf8_encode_str(char(int(z'D0A4'), ucs4), keyStr)
 
   ! retrieve the value using the UTF-8-encoded keyStr
-  strLen = toml_get_val_strlen(tblPtr, keyStr)
-  valType= toml_inquire_val_type(tblPtr, keyStr)
-  deallocate(strVal); allocate(character(strLen) :: strVal)
+  valType=toml_inquire_val_type(tblPtr, keyStr)
   call toml_get_val_str(tblPtr, keyStr, strVal)
 
   ! decode the UTF-8 into UCS
-  strLen = toml_utf8_decode_strlen(strVal)
-  allocate(character(strLen, kind=ucs4) :: ucsStr)
   call toml_utf8_decode_str(strVal, ucsStr)
 
   ! write the summary of Korean-language key and value extraction
   write(stdout,'(5a,i0,3a,i0)') "'",char(int(z'D0A4'), ucs4),&
                               "' type=",valType, &
-                              "; length=", strLen, &
+                              "; length=", len(ucsStr), &
                               "; raw_value=", strVal, &
                               "; unicode_int=", ichar(ucsStr(1:1),int64)
 
@@ -109,48 +104,48 @@ program example_program
 
   ! retrieve integer array parameters and values
   arrPtr   = toml_array_in(tblPtr, "intArray")
+  call toml_array_key(arrPtr, keyStr) 
   arrKind  = toml_array_kind(arrPtr) 
   arrType  = toml_array_type(arrPtr) 
   arrNelem = toml_array_nelem(arrPtr) 
-  write(stdout, '(a8,a4,a6,i6)') "intArray", arrKind, arrType, arrNelem
-  allocate(intArr(arrNelem)); intArr = 0
   call toml_get_array_int(arrPtr, intArr)
+  write(stdout, '(a8,a4,a6,i6)') keyStr, arrKind, arrType, arrNelem
 
   ! retrieve double array parameters and values
   arrPtr   = toml_array_in(tblPtr, "dblArray")
+  call toml_array_key(arrPtr, keyStr) 
   arrKind  = toml_array_kind(arrPtr) 
   arrType  = toml_array_type(arrPtr) 
   arrNelem = toml_array_nelem(arrPtr) 
-  write(stdout, '(a8,a4,a6,i6)') "dblArray", arrKind, arrType, arrNelem
-  allocate(dblArr(arrNelem)); dblArr = 0
+  write(stdout, '(a8,a4,a6,i6)') keyStr, arrKind, arrType, arrNelem
   call toml_get_array_dbl(arrPtr, dblArr)
   
   ! retrieve logical array parameters and values
   arrPtr   = toml_array_in(tblPtr, "boolArray")
+  call toml_array_key(arrPtr, keyStr) 
   arrKind  = toml_array_kind(arrPtr) 
   arrType  = toml_array_type(arrPtr) 
   arrNelem = toml_array_nelem(arrPtr) 
-  write(stdout, '(a9,a3,a6,i6)') "boolArray", arrKind, arrType, arrNelem
-  allocate(boolAr(arrNelem)); boolAr = .false.
+  write(stdout, '(a9,a3,a6,i6)') keyStr, arrKind, arrType, arrNelem
   call toml_get_array_bool(arrPtr, boolAr)
 
   ! retrieve toml_time array parameters and values
   arrPtr   = toml_array_in(tblPtr, "dateArray")
+  call toml_array_key(arrPtr, keyStr) 
   arrKind  = toml_array_kind(arrPtr) 
   arrType  = toml_array_type(arrPtr) 
   arrNelem = toml_array_nelem(arrPtr) 
-  write(stdout, '(a9,a3,a6,i6)') "dateArray", arrKind, arrType, arrNelem
-  allocate(dateAr(arrNelem))
+  write(stdout, '(a9,a3,a6,i6)') keyStr, arrKind, arrType, arrNelem
   call toml_get_array_time(arrPtr, dateAr)
 
   ! retrieve string array parameters and values
   arrPtr   = toml_array_in(tblPtr, "strArray")
+  call toml_array_key(arrPtr, keyStr) 
   arrKind  = toml_array_kind(arrPtr) 
   arrType  = toml_array_type(arrPtr) 
   arrNelem = toml_array_nelem(arrPtr) 
   strLen   = toml_array_strlen(arrPtr)
-  write(stdout, '(a8,a4,a6,i6)') "strArray", arrKind, arrType, arrNelem
-  allocate(character(strLen) :: strArr(arrNelem))
+  write(stdout, '(a8,a4,a6,i6)') keyStr, arrKind, arrType, arrNelem
   call toml_get_array_str(arrPtr, strArr)
 
   ! print array values
@@ -162,7 +157,7 @@ program example_program
   write(stdout, '(a)', advance="no") "dateArray: "
   do idx=1,size(dateAr)
     call toml_timestamp_to_string(dateAr(idx), timeStr)
-    write(stdout, '(a,1x)', advance="no") trim(timeStr)
+    write(stdout, '(a,1x)', advance="no") timeStr
   enddo 
   write(stdout, '()')
 
@@ -186,7 +181,6 @@ program example_program
   arrNelem = toml_array_nelem(arrPtr) 
   write(stdout, '(/a,a1,a,i0)') 'points: array kind=',arrKind, &
                                     '; #elem=',arrNelem
-  allocate(tArr(arrNelem));
   call toml_get_array_tbl(arrPtr, tArr)
   do idx=1,arrNelem
     call toml_get_val_dbl(tArr(idx), "x", xVal)
@@ -201,11 +195,7 @@ program example_program
   arrNelem = toml_array_nelem(arrPtr) 
   write(stdout, '(/a,a1,a,i0)') 'alt_points: array kind=',arrKind, &
                                         '; #elem=',arrNelem
-  allocate(aArr(arrNelem));
   call toml_get_array_arr(arrPtr, aArr)
-  allocate(xArr(toml_array_nelem(aArr(1)))) 
-  allocate(yArr(toml_array_nelem(aArr(2)))) 
-  allocate(zArr(toml_array_nelem(aArr(3)))) 
   call toml_get_array_dbl(aArr(1), xArr)
   call toml_get_array_dbl(aArr(2), yArr)
   call toml_get_array_dbl(aArr(3), zArr)

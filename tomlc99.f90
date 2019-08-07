@@ -97,6 +97,14 @@ module tomlc99
       character(kind=c_char) :: tableName(*)
     end function 
 
+    function tomlc99_toml_table_key(tblPtr) &
+             bind(C,name="toml_table_key")
+      import                 :: c_ptr
+      implicit none
+      type(c_ptr)            :: tomlc99_toml_table_key
+      type(c_ptr), value     :: tblPtr
+    end function 
+
     function tomlc99_toml_table_nkval(tblPtr) &
              bind(C,name="toml_table_nkval")
       import                 :: c_ptr, c_int
@@ -144,6 +152,14 @@ module tomlc99
       implicit none
       type(c_ptr), value     :: arrPtr
       character(kind=c_char) :: tomlc99_toml_array_type
+    end function 
+
+    function tomlc99_toml_array_key(tblPtr) &
+             bind(C,name="toml_array_key")
+      import                 :: c_ptr
+      implicit none
+      type(c_ptr)            :: tomlc99_toml_array_key
+      type(c_ptr), value     :: tblPtr
     end function 
 
     function tomlc99_toml_array_nelem(arrPtr) &
@@ -322,6 +338,28 @@ module tomlc99
 
   end function
 
+  subroutine toml_table_key(inTblPtr, keyName)
+
+    ! description: accepts a pointer to a "toml_table_t" data structure
+    !              and returns the string value of the key name. 
+
+    type(c_ptr),      intent(in)  :: inTblPtr
+    character(len=:), &
+         allocatable, intent(out) :: keyName
+
+    type(c_ptr)                   :: tmpKey
+    character(len=maxStrLen), &
+                        pointer   :: fstring
+
+    integer(int32)                :: keyLen
+
+    tmpKey = tomlc99_toml_table_key(inTblPtr)
+    call c_f_pointer(tmpKey, fstring)
+    keyLen = index(fstring, c_null_char)-1
+    keyName = fstring(1:keyLen)
+
+  end subroutine
+
   function toml_table_nkval(inTblPtr)
 
     ! description: returns the integer number of key-value pairs in the 
@@ -428,6 +466,28 @@ module tomlc99
 
   end function
 
+  subroutine toml_array_key(inArrPtr, keyName)
+
+    ! description: accepts a pointer to a "toml_array_t" data structure
+    !              and returns the string value of the key name. 
+
+    type(c_ptr),      intent(in)  :: inArrPtr
+    character(len=:), &
+         allocatable, intent(out) :: keyName
+
+    type(c_ptr)                   :: tmpKey
+    character(len=maxStrLen), &
+                        pointer   :: fstring
+
+    integer(int32)                :: keyLen
+
+    tmpKey = tomlc99_toml_array_key(inArrPtr)
+    call c_f_pointer(tmpKey, fstring)
+    keyLen = index(fstring, c_null_char)-1
+    keyName = fstring(1:keyLen)
+
+  end subroutine
+
   subroutine toml_get_array_int(inArrPtr, outArray)
 
     ! description: accepts a pointer to a "toml_array_t" data structure
@@ -435,7 +495,8 @@ module tomlc99
     !              is issued if the parameters do not match
 
     type(c_ptr),                  intent(in)  :: inArrPtr
-    integer(int64), dimension(:), intent(out) :: outArray
+    integer(int64), dimension(:), &
+                     allocatable, intent(out) :: outArray
     
     integer(c_int64_t), dimension(:), allocatable :: c_outArray
     integer(c_int)                                :: c_nelem, c_idx, c_ierr
@@ -443,25 +504,22 @@ module tomlc99
     type(c_ptr)                                   :: tmpRaw
     integer                                       :: idx
     
-    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
     c_kind      = tomlc99_toml_array_kind(inArrPtr)
     c_type      = tomlc99_toml_array_type(inArrPtr)
 
-    if (c_nelem /= size(outArray)) then
-      write(stderr,101) c_nelem, size(outArray)
-      error stop
-    endif
-
     if (c_kind /= 'v') then
-      write(stderr,102) c_kind, 'v'
+      write(stderr,101) c_kind, 'v'
       error stop
     endif
 
     if (c_type /= 'i') then
-      write(stderr,103) c_type, 'i'
+      write(stderr,102) c_type, 'i'
       error stop
     endif
 
+    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
+
+    allocate(outArray(1:c_nelem));       outArray = 0
     allocate(c_outArray(0:c_nelem-1)); c_outArray = 0
 
     do idx=1,c_nelem
@@ -472,10 +530,8 @@ module tomlc99
 
     outArray = c_outArray
 
-    101 format ('ERROR: the size of the toml array data (',i0,') does not ',&
-                'match the size of output array (',i0,').')
-    102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
-    103 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
+    101 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
+    102 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
 
   end subroutine
 
@@ -486,7 +542,8 @@ module tomlc99
     !              is issued if the parameters do not match
 
     type(c_ptr),                 intent(in) :: inArrPtr
-    real(real64), dimension(:), intent(out) :: outArray
+    real(real64), dimension(:), &
+                   allocatable, intent(out) :: outArray
     
     real(c_double), dimension(:), allocatable :: c_outArray
     integer(c_int)                            :: c_nelem, c_idx, c_ierr
@@ -494,26 +551,23 @@ module tomlc99
     type(c_ptr)                               :: tmpRaw
     integer                                   :: idx
     
-    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
     c_kind      = tomlc99_toml_array_kind(inArrPtr)
     c_type      = tomlc99_toml_array_type(inArrPtr)
 
-    if (c_nelem /= size(outArray)) then
-      write(stderr,101) c_nelem, size(outArray)
-      error stop
-    endif
-
     if (c_kind /= 'v') then
-      write(stderr,102) c_kind, 'v'
+      write(stderr,101) c_kind, 'v'
       error stop
     endif
 
     if (c_type /= 'd') then
-      write(stderr,103) c_type, 'd'
+      write(stderr,102) c_type, 'd'
       error stop
     endif
 
-    allocate(c_outArray(0:c_nelem-1)); c_outArray = 0
+    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
+
+    allocate(outArray(1:c_nelem));       outArray = 0.0
+    allocate(c_outArray(0:c_nelem-1)); c_outArray = 0.0
 
     do idx=1,c_nelem
       c_idx  = idx - 1
@@ -523,10 +577,8 @@ module tomlc99
 
     outArray = c_outArray
 
-    101 format ('ERROR: the size of the toml array data (',i0,') does not ',&
-                'match the size of output array (',i0,').')
-    102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
-    103 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
+    101 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
+    102 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
 
   end subroutine
 
@@ -537,7 +589,8 @@ module tomlc99
     !              is issued if the parameters do not match
 
     type(c_ptr),                   intent(in)  :: inArrPtr
-    type(toml_time), dimension(:), intent(out) :: outArray
+    type(toml_time), dimension(:), &
+                      allocatable, intent(out) :: outArray
     
     integer(c_int)                            :: c_nelem, c_idx, c_ierr
     character(kind=c_char)                    :: c_kind, c_type
@@ -545,24 +598,21 @@ module tomlc99
     type(c_ptr)                               :: tmpRaw
     integer                                   :: idx
     
-    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
     c_kind      = tomlc99_toml_array_kind(inArrPtr)
     c_type      = tomlc99_toml_array_type(inArrPtr)
 
-    if (c_nelem /= size(outArray)) then
-      write(stderr,101) c_nelem, size(outArray)
-      error stop
-    endif
-
     if (c_kind /= 'v') then
-      write(stderr,102) c_kind, 'v'
+      write(stderr,101) c_kind, 'v'
       error stop
     endif
 
     if (c_type /= 't' .and. c_type /= "D" .and. c_type /= "T") then
-      write(stderr,103) c_type, "t || T || D"
+      write(stderr,102) c_type, "t || T || D"
       error stop
     endif
+
+    c_nelem = tomlc99_toml_array_nelem(inArrPtr)
+    allocate(outArray(1:c_nelem))
 
     do idx=1,c_nelem
       c_idx  = idx - 1
@@ -571,10 +621,8 @@ module tomlc99
       call toml_c_f_timestamp(c_outTime, outArray(idx))
     enddo
 
-    101 format ('ERROR: the size of the toml array data (',i0,') does not ',&
-                'match the size of output array (',i0,').')
-    102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
-    103 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
+    101 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
+    102 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
 
   end subroutine
 
@@ -586,7 +634,8 @@ module tomlc99
     !              is issued if the parameters do not match
 
     type(c_ptr),                intent(in)  :: inArrPtr
-    logical,      dimension(:), intent(out) :: outArray
+    logical, dimension(:), allocatable, &
+                                intent(out) :: outArray
     
     logical(kind=c_bool),&
                     dimension(:), allocatable :: c_outArray
@@ -595,25 +644,22 @@ module tomlc99
     type(c_ptr)                               :: tmpRaw
     integer                                   :: idx
     
-    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
     c_kind      = tomlc99_toml_array_kind(inArrPtr)
     c_type      = tomlc99_toml_array_type(inArrPtr)
 
-    if (c_nelem /= size(outArray)) then
-      write(stderr,101) c_nelem, size(outArray)
-      error stop
-    endif
-
     if (c_kind /= 'v') then
-      write(stderr,102) c_kind, 'v'
+      write(stderr,101) c_kind, 'v'
       error stop
     endif
 
     if (c_type /= 'b') then
-      write(stderr,103) c_type, 'b'
+      write(stderr,102) c_type, 'b'
       error stop
     endif
 
+    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
+
+    allocate(outArray(1:c_nelem));       outArray = .false.
     allocate(c_outArray(0:c_nelem-1)); c_outArray = .false.
 
     do idx=1,c_nelem
@@ -624,10 +670,8 @@ module tomlc99
 
     outArray = c_outArray
 
-    101 format ('ERROR: the size of the toml array data (',i0,') does not ',&
-                'match the size of output array (',i0,').')
-    102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
-    103 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
+    101 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
+    102 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
 
   end subroutine
 
@@ -654,12 +698,12 @@ module tomlc99
     c_type            = tomlc99_toml_array_type(inArrPtr)
 
     if (c_kind /= 'v') then
-      write(stderr,102) c_kind, 'v'
+      write(stderr,101) c_kind, 'v'
       error stop
     endif
 
     if (c_type /= 's') then
-      write(stderr,103) c_type, 's'
+      write(stderr,102) c_type, 's'
       error stop
     endif
 
@@ -677,8 +721,8 @@ module tomlc99
 
     enddo
 
-    102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
-    103 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
+    101 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
+    102 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
 
   end function
 
@@ -689,8 +733,8 @@ module tomlc99
     !              issued if the parameters do not match
 
     type(c_ptr),                intent(in)  :: inArrPtr
-    character(len=*), dimension(:), &
-                                intent(out) :: outArray
+    character(len=:), dimension(:), &
+                   allocatable, intent(out) :: outArray
     
     integer(c_int)                          :: c_nelem, c_idx, c_ierr
     character(kind=c_char)                  :: c_kind, c_type
@@ -698,30 +742,22 @@ module tomlc99
     integer                                 :: idx, tmpStrLen, maxLen
     character(len=maxStrLen),   pointer     :: fstring
     
-    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
     c_kind      = tomlc99_toml_array_kind(inArrPtr)
     c_type      = tomlc99_toml_array_type(inArrPtr)
 
-    if (c_nelem /= size(outArray)) then
-      write(stderr,101) c_nelem, size(outArray)
-      error stop
-    endif
-
     if (c_kind /= 'v') then
-      write(stderr,102) c_kind, 'v'
+      write(stderr,101) c_kind, 'v'
       error stop
     endif
 
     if (c_type /= 's') then
-      write(stderr,103) c_type, 's'
+      write(stderr,102) c_type, 's'
       error stop
     endif
 
-    maxLen = toml_array_strlen(inArrPtr)
-    if (len(outArray) /= maxLen) then
-      write(stderr,104) maxLen, len(outArray)
-      error stop
-    endif
+    c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
+    maxLen      = toml_array_strlen(inArrPtr)
+    allocate(character(maxLen) :: outArray(int(c_nelem, int32)))
 
     do idx=1,c_nelem
 
@@ -737,12 +773,8 @@ module tomlc99
 
     enddo
 
-    101 format ('ERROR: the size of the toml array data (',i0,') does not ',&
-                'match the size of output array (',i0,').')
-    102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
-    103 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
-    104 format ('ERROR: the maximum string length of the toml array data (',i0, &
-                ') does not match the size of output array (',i0,').')
+    101 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
+    102 format ('ERROR: array has type "',a,'" but "',a,'" is required.')
 
   end subroutine
 
@@ -754,7 +786,8 @@ module tomlc99
     !              match.
 
     type(c_ptr),                intent(in)  :: inArrPtr
-    type(c_ptr), dimension(:),  intent(out) :: outArray
+    type(c_ptr), dimension(:), &
+                  allocatable,  intent(out) :: outArray
     
     integer(c_int)                          :: c_nelem, c_idx
     character(kind=c_char)                  :: c_kind
@@ -763,15 +796,12 @@ module tomlc99
     c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
     c_kind      = tomlc99_toml_array_kind(inArrPtr)
 
-    if (c_nelem /= size(outArray)) then
-      write(stderr,101) c_nelem, size(outArray)
+    if (c_kind /= 't') then
+      write(stderr,101) c_kind, 't'
       error stop
     endif
 
-    if (c_kind /= 't') then
-      write(stderr,102) c_kind, 't'
-      error stop
-    endif
+    allocate(outArray(1:c_nelem)); outArray = c_null_ptr
 
     do idx=1,c_nelem
 
@@ -780,9 +810,7 @@ module tomlc99
 
     enddo
 
-    101 format ('ERROR: the size of the toml array data (',i0,') does not ',&
-                'match the size of output array (',i0,').')
-    102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
+    101 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
 
   end subroutine
 
@@ -794,7 +822,8 @@ module tomlc99
     !              match.
 
     type(c_ptr),                intent(in)  :: inArrPtr
-    type(c_ptr), dimension(:),  intent(out) :: outArray
+    type(c_ptr), dimension(:), &
+                  allocatable,  intent(out) :: outArray
     
     integer(c_int)                          :: c_nelem, c_idx
     character(kind=c_char)                  :: c_kind
@@ -803,15 +832,12 @@ module tomlc99
     c_nelem     = tomlc99_toml_array_nelem(inArrPtr)
     c_kind      = tomlc99_toml_array_kind(inArrPtr)
 
-    if (c_nelem /= size(outArray)) then
-      write(stderr,101) c_nelem, size(outArray)
+    if (c_kind /= 'a') then
+      write(stderr,101) c_kind, 'a'
       error stop
     endif
 
-    if (c_kind /= 'a') then
-      write(stderr,102) c_kind, 'a'
-      error stop
-    endif
+    allocate(outArray(1:c_nelem)); outArray = c_null_ptr
 
     do idx=1,c_nelem
 
@@ -820,55 +846,9 @@ module tomlc99
 
     enddo
 
-    101 format ('ERROR: the size of the toml array data (',i0,') does not ',&
-                'match the size of output array (',i0,').')
-    102 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
+    101 format ('ERROR: array has kind "',a,'" but "',a,'" is required.')
 
   end subroutine
-
-  function toml_get_val_strlen(inTblPtr, keyName)
-
-    ! description: accepts a pointer to a "toml_table_t" data structure
-    !              and a key name for a string; returns the string length.
-    !              If the parameters do not match, a fatal error is issued.
-
-    integer(int32)                :: toml_get_val_strlen
-    type(c_ptr),      intent(in)  :: inTblPtr
-    character(len=*), intent(in)  :: keyName 
-
-    type(c_ptr)                   :: tmpRaw
-    character                     :: valType
-    integer(c_int)                :: c_ierr = 0
-    type(c_ptr)                   :: c_outStr
-
-    character(len=maxStrLen), pointer :: fstring
-    integer :: ucsLen
-
-    tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
-
-    if (c_associated(tmpRaw) .eqv. .false.) then
-      write(stderr,101) trim(keyName)
-      error stop
-    endif
-
-    valType = toml_inquire_val_type(inTblPtr, trim(keyName) // c_null_char)
-    if (valType /= "s") then
-      write(stderr,102) trim(keyName), valType, "s"
-      error stop
-    endif
-
-    c_ierr = tomlc99_toml_rtos(tmpRaw, c_outStr)
-
-    call c_f_pointer(c_outStr, fstring)
-    toml_get_val_strlen = index(fstring, c_null_char)-1
-
-    call c_free(c_outStr)
-
-    101 format ('ERROR: Failed to find key: ',a)
-    102 format ('ERROR: Key "',a,'" has type "',a,&
-                        '", but the output array is type "',a,'"')
-
-  end function
 
   subroutine toml_get_val_str(inTblPtr, keyName, outVal)
 
@@ -878,7 +858,8 @@ module tomlc99
 
     type(c_ptr),      intent(in)  :: inTblPtr
     character(len=*), intent(in)  :: keyName 
-    character(len=*), intent(out) :: outVal
+    character(len=:), &
+         allocatable, intent(out) :: outVal
 
     type(c_ptr)                    :: tmpRaw
     character                      :: valType
@@ -905,14 +886,11 @@ module tomlc99
     c_ierr = tomlc99_toml_rtos(tmpRaw, c_outStr)
 
     call c_f_pointer(c_outStr, fstring)
+    
     strLen =  index(fstring, c_null_char)-1
-
-    if (strLen /= len(outVal)) then
-      write(stderr,103) trim(keyName)
-      error stop
-    endif
-
+    allocate(character(strLen) :: outVal)
     outVal = fstring(1:strLen)
+
     call c_free(c_outStr)
 
     101 format ('ERROR: Failed to find key: ',a)
@@ -1162,12 +1140,15 @@ module tomlc99
     ! description: writes a toml_time structure to a string
 
     type(toml_time),   intent(in)  :: tsVal
-    character(len=29), intent(out) :: outString
+    character(len=:), &
+         allocatable,  intent(out) :: outString
+
+    allocate(character(64) :: outString)
     
     if (tsVal % timeType == "T") then
       write(outString,101) tsVal%year, tsVal%month,  tsVal%day, &
                            tsVal%hour, tsVal%minute, tsVal%second, &
-                           adjustl(tsVal%offset)
+                           trim(tsVal%offset)
     else if (tsVal % timeType == "D") then
       write(outString,102) tsVal%year, tsVal%month,  tsVal%day
     else if (tsVal % timeType == "t") then
@@ -1177,34 +1158,14 @@ module tomlc99
       error stop
     endif
 
-    101 format (i4.4,'-',i2.2,'-',i2.2,'T',i2.2,':',i2.2,':',i2.2,a10)
+    outString = trim(outString)
+
+    101 format (i4.4,'-',i2.2,'-',i2.2,'T',i2.2,':',i2.2,':',i2.2,a)
     102 format (i4.4,'-',i2.2,'-',i2.2)
     103 format (i2.2,':',i2.2,':',i2.2)
     104 format ('ERROR: Timestamp type "',a1,'" is unrecognized.')
     
   end subroutine
-
-  function toml_get_key_at_index_strlen(inTblPtr, keyIndex)
-
-    ! description: accepts a pointer to a "toml_table_t" data structure
-    !              and an index number (starting with 0, C convention);
-    !              returns the string length of the key name.
-
-    integer(int32)              :: toml_get_key_at_index_strlen
-    type(c_ptr),    intent(in)  :: inTblPtr
-    integer(int32), intent(in)  :: keyIndex
-
-    integer(c_int)              :: c_idx
-    type(c_ptr)                 :: tmpKey
-    character(len=maxStrLen), &
-                        pointer :: fstring
-
-    c_idx  = keyIndex
-    tmpKey = tomlc99_toml_key_in(inTblPtr, c_idx)
-    call c_f_pointer(tmpKey, fstring)
-    toml_get_key_at_index_strlen = index(fstring, c_null_char)-1
-
-  end function
 
   subroutine toml_get_key_at_index(inTblPtr, keyIndex, keyName)
 
@@ -1215,7 +1176,8 @@ module tomlc99
 
     type(c_ptr),      intent(in)  :: inTblPtr
     integer(int32),   intent(in)  :: keyIndex
-    character(len=*), intent(out) :: keyName
+    character(len=:), &
+         allocatable, intent(out) :: keyName
 
     integer(c_int)                :: c_idx
     type(c_ptr)                   :: tmpKey
@@ -1229,14 +1191,7 @@ module tomlc99
     call c_f_pointer(tmpKey, fstring)
     keyLen = index(fstring, c_null_char)-1
 
-    if (keyLen /= len(keyName)) then
-      write(stderr,101) trim(keyName)
-      error stop
-    endif
-
     keyName = fstring(1:keyLen)
-
-    101 format ('ERROR: Output string length does not match TOML data for key: ',a)
 
   end subroutine
 
@@ -1391,21 +1346,15 @@ module tomlc99
     !              decoded character string of kind ISO_10646 (UCS-4).
 
     character(len=*), intent(in) :: inStr
-    character(len=*, kind=ucs4), &
-                    intent(out)  :: outStr
+    character(len=:, kind=ucs4), &
+       allocatable, intent(out)  :: outStr
 
     integer                           :: expLen, fIdx, uIdx, strEnd
     integer(c_int)                    :: bytes
     integer(c_int64_t)                :: ucsInt
 
     expLen = toml_utf8_decode_strlen(inStr)
-
-    if (expLen /= len(outStr)) then
-      write(stderr, '(a)') &
-        "ERROR: UCS-4 output string length does not match expectations " &
-        // "(toml_utf8_decode_str)"
-      error stop
-    endif
+    allocate(character(expLen, kind=ucs4) :: outStr)
 
     fIdx   = 1
     uIdx   = 1
@@ -1478,7 +1427,8 @@ module tomlc99
 
     character(len=*, kind=ucs4), &
                     intent(in)    :: inStr
-    character(len=*), intent(out) :: outStr
+    character(len=:), &
+        allocatable,  intent(out) :: outStr
 
     integer                           :: expLen, fIdx, uIdx, bIdx 
     integer(c_int)                    :: bytes
@@ -1486,13 +1436,7 @@ module tomlc99
     character(c_char)                 :: buffer(6)
 
     expLen = toml_utf8_encode_strlen(inStr)
-
-    if (expLen /= len(outStr)) then
-      write(stderr, '(a)') &
-        "ERROR: UTF-8 output string length does not match expectations " &
-        // "(toml_utf8_encode_str)"
-      error stop
-    endif
+    allocate(character(expLen) :: outStr)
 
     fIdx = 1
     do uIdx=1,len(inStr)

@@ -1,7 +1,7 @@
 # f_tomlc99
 Fortran interface to [TOML](https://github.com/toml-lang/toml) through cktan's [tomlc99](https://github.com/cktan/tomlc99) library. The interface hasn't been tested extensively, so please use caution. Suggestions and fixes are welcome. 
 
-See the `example_program.f90` file for the available facilities. Note that the functions that retrieve key names for arrays and tables are currently missing. The example can be compiled with:
+See the `example_program.f90` file for the available facilities. All output strings and arrays are sized dynamically and must be supplied with the `allocatable` attribute. The example can be compiled with:
 
 `$FC tomlc99.f90 example_program.f90 /path/to/tomlc99/libtoml.a`
 
@@ -10,6 +10,9 @@ The example code produces the following output on my machine:
 ```
 first key string length: 5
 first key string value: title
+
+table key string length: 6
+table key string value: server
 
 nkval=6; narr=7; ntab=0
 
