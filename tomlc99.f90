@@ -1184,13 +1184,13 @@ module tomlc99
     
   end subroutine
 
-  function toml_get_keyLen_at_index(inTblPtr, keyIndex)
+  function toml_get_key_at_index_strlen(inTblPtr, keyIndex)
 
     ! description: accepts a pointer to a "toml_table_t" data structure
     !              and an index number (starting with 0, C convention);
     !              returns the string length of the key name.
 
-    integer(int32)              :: toml_get_keyLen_at_index
+    integer(int32)              :: toml_get_key_at_index_strlen
     type(c_ptr),    intent(in)  :: inTblPtr
     integer(int32), intent(in)  :: keyIndex
 
@@ -1202,11 +1202,11 @@ module tomlc99
     c_idx  = keyIndex
     tmpKey = tomlc99_toml_key_in(inTblPtr, c_idx)
     call c_f_pointer(tmpKey, fstring)
-    toml_get_keyLen_at_index = index(fstring, c_null_char)-1
+    toml_get_key_at_index_strlen = index(fstring, c_null_char)-1
 
   end function
 
-  subroutine toml_get_keyName_at_index(inTblPtr, keyIndex, keyName)
+  subroutine toml_get_key_at_index(inTblPtr, keyIndex, keyName)
 
     ! description: accepts a pointer to a "toml_table_t" data structure
     !              and an index number (starting wth 0, C convention);

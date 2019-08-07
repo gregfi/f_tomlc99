@@ -31,10 +31,10 @@ program example_program
   filePtr = toml_parse_file("example_data.toml")
 
   ! retrieve the first key name and print it 
-  strLen = toml_get_keyLen_at_index(filePtr, 0)
+  strLen = toml_get_key_at_index_strlen(filePtr, 0)
   write(stdout,'(a,i0)') "first key string length: ", strLen
   allocate(character(strLen) :: strVal)
-  call toml_get_keyName_at_index(filePtr,0,strVal)
+  call toml_get_key_at_index(filePtr,0,strVal)
   write(stdout,'(a,a)') "first key string value: ", strVal
 
   ! parse the "server" table; print number of constituent vals, arrays, tables
