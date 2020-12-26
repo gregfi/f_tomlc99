@@ -12,22 +12,23 @@ module tomlc99
 
   type, bind(c) :: bufferType
     integer(c_int)         :: year, month, day
-    integer(c_int)         :: hour, minute, second
+    integer(c_int)         :: hour, minute, second, millisec
     character(kind=c_char) :: z(10)
   end type
 
   type, bind(c) :: timestampType
     type(bufferType) :: buffer 
     type(c_ptr)      :: year, month, day
-    type(c_ptr)      :: hour, minute, second
+    type(c_ptr)      :: hour, minute, second, millisec
     type(c_ptr)      :: z
   end type
 
   type :: toml_time
     integer           :: year, month, day
-    integer           :: hour, minute, second
-    character(len=10) :: offset
+    integer           :: hour, minute, second, millisec
+    character(len=10) :: offset = ""
     character(len=1)  :: timeType
+    logical           :: has_millisec = .false.
   end type
 
   interface
@@ -1050,12 +1051,13 @@ module tomlc99
     integer(c_int)                :: c_ierr = 0
     type(timestampType)           :: c_outTime
 
-    outTime%year   = 0
-    outTime%month  = 0
-    outTime%day    = 0
-    outTime%hour   = 0
-    outTime%minute = 0
-    outTime%second = 0
+    outTime%year     = 0
+    outTime%month    = 0
+    outTime%day      = 0
+    outTime%hour     = 0
+    outTime%minute   = 0
+    outTime%second   = 0
+    outTime%millisec = 0
 
     tmpRaw = tomlc99_toml_raw_in(inTblPtr, trim(keyName) // c_null_char)
 
@@ -1115,6 +1117,11 @@ module tomlc99
       f_time % minute= tmpInt
       call c_f_pointer(c_time%second, tmpInt)
       f_time % second= tmpInt
+      if (c_associated(c_time%millisec)) then
+        f_time % has_millisec=.true.
+        call c_f_pointer(c_time%millisec, tmpInt)
+        f_time % millisec= tmpInt
+      endif
     endif
 
     if (c_associated(c_time%z)) then
@@ -1142,28 +1149,43 @@ module tomlc99
     type(toml_time),   intent(in)  :: tsVal
     character(len=:), &
          allocatable,  intent(out) :: outString
+    character(len=32)              :: dString, tString, mString
+    character(len=1)               :: sepChar
 
+    dString=""; tString=""; mString=""; sepChar=""
     allocate(character(64) :: outString)
     
-    if (tsVal % timeType == "T") then
-      write(outString,101) tsVal%year, tsVal%month,  tsVal%day, &
-                           tsVal%hour, tsVal%minute, tsVal%second, &
-                           trim(tsVal%offset)
-    else if (tsVal % timeType == "D") then
-      write(outString,102) tsVal%year, tsVal%month,  tsVal%day
-    else if (tsVal % timeType == "t") then
-      write(outString,103) tsVal%hour, tsVal%minute, tsVal%second
-    else
+    if (tsVal % timeType /= "t" .and. &
+        tsVal % timeType /= "D" .and. &
+        tsVal % timeType /= "T") then
       write(stderr,104) tsVal % timeType
       error stop
     endif
 
-    outString = trim(outString)
+    if (tsVal % timeType == "D" .or. tsVal % timeType == "T") then
+      write(dString,101) tsVal%year, tsVal%month,  tsVal%day
+    endif 
 
-    101 format (i4.4,'-',i2.2,'-',i2.2,'T',i2.2,':',i2.2,':',i2.2,a)
-    102 format (i4.4,'-',i2.2,'-',i2.2)
-    103 format (i2.2,':',i2.2,':',i2.2)
-    104 format ('ERROR: Timestamp type "',a1,'" is unrecognized.')
+    if (tsVal % timeType == "T") sepChar = "T"
+
+    if (tsVal % timeType == "t" .or. tsVal % timeType == "T") then
+      write(tString,102) tsVal%hour, tsVal%minute, tsVal%second
+    endif 
+
+    if (tsVal % has_millisec .eqv. .true.) then
+      write(mString,104) tsVal%millisec
+    endif
+
+    outString = trim( trim(dString) // &
+                      trim(sepChar) // &
+                      trim(tString) // &
+                      trim(mString) // &
+                      trim(tsVal%offset) )
+
+    101 format (i4.4,'-',i2.2,'-',i2.2)
+    102 format (i2.2,':',i2.2,':',i2.2)
+    103 format ('ERROR: Timestamp type "',a1,'" is unrecognized.')
+    104 format ('.',i3.3)
     
   end subroutine
 
